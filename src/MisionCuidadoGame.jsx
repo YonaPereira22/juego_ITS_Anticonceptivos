@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 
+const publicAsset = (path) => `${import.meta.env.BASE_URL}${path}`;
+
 /* ================================================================
    MISIÓN CUIDADO: SALUD EN ACCIÓN
    Videojuego educativo 2D de exploración (React + Canvas)
@@ -493,7 +495,7 @@ function buildLevels() {
     subtitle: "Mitos y realidades",
     width: W1,
     height: H1,
-    backgroundImage: "/liceo.png",
+    backgroundImage: publicAsset("liceo.png"),
     floorColor: "#EDE6D6",
     accent: "#C6F135",
     spawn: { x: 735, y: 780 },
@@ -678,7 +680,7 @@ function buildLevels() {
     subtitle: "Prevención y toma de decisiones",
     width: W2,
     height: H2,
-    backgroundImage: "/plaza.png",
+    backgroundImage: publicAsset("plaza.png"),
     floorColor: "#DCEFE3",
     accent: "#FF4D8D",
     spawn: { x: 540, y: 650 },
@@ -798,7 +800,7 @@ function buildLevels() {
     subtitle: "ITS y métodos anticonceptivos",
     width: W3,
     height: H3,
-    backgroundImage: "/hospital.png",
+    backgroundImage: publicAsset("hospital.png"),
     floorColor: "#E4EEFB",
     accent: "#8DB4FF",
     spawn: { x: 535, y: 665 },
@@ -1393,7 +1395,7 @@ function FinalMissionScreen({ character, onComplete }) {
   function downloadCertificate() {
     setCertificateError("");
     const image = new Image();
-    image.src = "/final-mission/certificate-template.png";
+    image.src = publicAsset("final-mission/certificate-template.png");
     image.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = image.naturalWidth;
@@ -1429,7 +1431,7 @@ function FinalMissionScreen({ character, onComplete }) {
           {victory && (
             <div style={styles.certificateBox}>
               <div style={styles.certificatePreview}>
-                <img src="/final-mission/certificate-template.png" alt="Certificado de logro" style={styles.certificatePreviewImage} />
+                <img src={publicAsset("final-mission/certificate-template.png")} alt="Certificado de logro" style={styles.certificatePreviewImage} />
                 <span style={styles.certificateName}>{character.name}</span>
               </div>
               <BigButton onClick={downloadCertificate} color="#1BA7E1">
@@ -1453,7 +1455,7 @@ function FinalMissionScreen({ character, onComplete }) {
           <div style={styles.finalMissionIntro}>
             <div style={styles.finalMissionIntroDoctor}>
               <img
-                src="/final-mission/doctor.png"
+                src={publicAsset("final-mission/doctor.png")}
                 alt="Doctor preparado para combatir las ITS"
                 style={styles.finalMissionIntroDoctorImage}
               />
@@ -1478,8 +1480,8 @@ function FinalMissionScreen({ character, onComplete }) {
       </div>
       <div style={styles.finalMissionLayout}>
         <div style={styles.finalMissionVisuals}>
-          <img src="/final-mission/doctor.png" alt="Dr. Vega" style={{ ...styles.finalMissionDoctor, filter: "drop-shadow(0 8px 8px rgba(0,0,0,.4))" }} />
-          <img src="/final-mission/city.png" alt="Población" style={styles.finalMissionCity} />
+          <img src={publicAsset("final-mission/doctor.png")} alt="Dr. Vega" style={{ ...styles.finalMissionDoctor, filter: "drop-shadow(0 8px 8px rgba(0,0,0,.4))" }} />
+          <img src={publicAsset("final-mission/city.png")} alt="Población" style={styles.finalMissionCity} />
         </div>
         <div style={styles.finalMissionCard}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -1520,10 +1522,10 @@ function FinalMissionScreen({ character, onComplete }) {
           <div style={{ minHeight: 25, marginTop: 8, color: message.includes("equivocado") || message.includes("alcanzó") ? "#FF8FB1" : "#C6F135", fontSize: 13 }}>{message}</div>
         </div>
         <div style={styles.finalMissionBossPanel}>
-          <img src="/final-mission/boss.png" alt="Amenaza final" style={styles.finalMissionBoss} />
+          <img src={publicAsset("final-mission/boss.png")} alt="Amenaza final" style={styles.finalMissionBoss} />
         </div>
       </div>
-      <audio ref={audioRef} src="/final-mission/TensionLoop.wav" loop preload="auto" />
+      <audio ref={audioRef} src={publicAsset("final-mission/TensionLoop.wav")} loop preload="auto" />
     </div>
   );
 }
