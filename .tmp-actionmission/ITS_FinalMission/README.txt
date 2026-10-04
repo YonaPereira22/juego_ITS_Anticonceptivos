@@ -1,62 +1,59 @@
-MISIÓN FINAL — OPERACIÓN ANTIBIÓTICO
-====================================
+MISIÓN CUIDADO: SALUD EN ACCIÓN
+================================
 
-Esta versión convierte la misión final en un videojuego de acción 2D.
+RESUMEN
+-------
+Videojuego educativo 2D sobre salud sexual, prevención de infecciones de transmisión sexual (ITS), métodos anticonceptivos, consentimiento y autocuidado. El jugador crea su perfil con un nombre y uno de seis avatares, explora escenarios, conversa con personajes, revisa objetos, responde preguntas y toma decisiones. El recorrido termina con una misión de acción que pone a prueba lo aprendido.
 
-CONCEPTO
-- El jugador controla a un doctor.
-- El doctor dispone de un arma que dispara proyectiles de antibiótico.
-- Los objetivos que aparecen en el campo NO indican si son bacterias o virus.
-- El jugador debe decidir y disparar sin recibir pistas visuales.
-- Si el proyectil impacta una bacteria, el Boss pierde vida.
-- Si el proyectil impacta un virus, la población pierde protección.
-- Si un objetivo alcanza la zona protegida, la población también pierde protección.
-- Hay 3 niveles y 3 oleadas por nivel.
-- El Boss final tiene 100 de vida y se va debilitando al eliminar bacterias.
-- La población comienza con 100 de protección.
-- Al llegar el Boss a 0 aparece la pantalla de victoria.
-- Si la población llega a 0 aparece la pantalla de derrota.
+El juego está desarrollado con React y Vite. La ruta normal tiene cuatro niveles, que se desbloquean progresivamente. El mapa incluye un modo de prueba para acceder a cualquier nivel directamente.
 
-CONTENIDO EDUCATIVO
-Bacterias utilizadas en la lógica del juego:
-- Gonorrea
-- Sífilis
-- Clamidia
+NIVELES
+-------
 
-Virus utilizados como objetivos trampa:
-- VIH
-- VPH
-- Hepatitis B
-- Herpes
+1. EL LICEO — MITOS Y REALIDADES
+La profesora Ariana pide revisar mensajes que circulan en el liceo. El jugador recorre el mapa, consulta cinco carteles y ayuda a Cami a decidir cómo verificar una afirmación sobre el VIH. Los carteles tratan sobre transmisión del VIH, ITS sin síntomas, preservativos, prejuicios sobre quién puede contraer una ITS y anticoncepción de emergencia. Cada respuesta explica el contenido. Un libro escondido brinda una pista adicional sobre consentimiento y diálogo.
 
-IMPORTANTE
-Durante la partida no se muestran los nombres ni se da una pista visual sobre la categoría del objetivo.
-Después de un impacto incorrecto se informa al jugador qué objetivo era y por qué el antibiótico no era la herramienta adecuada.
+2. RUMORES EN RED — PREVENCIÓN Y TOMA DE DECISIONES
+Los personajes comparten dudas surgidas de chats y conversaciones. El jugador resuelve tres preguntas de verdadero o falso y dos de opción múltiple, y ayuda a Vero a decidir qué hacer con un mensaje alarmante. Se abordan el uso de preservativos, la posibilidad de tener una ITS sin síntomas visibles, la baja confiabilidad del coito interrumpido, la diferencia entre anticoncepción y prevención de ITS, y la consulta con profesionales o fuentes confiables. Un celular escondido ofrece una pista sobre verificar antes de reenviar información.
 
-JUGABILIDAD
+3. CENTRO DE SALUD — ITS Y MÉTODOS ANTICONCEPTIVOS
+El nivel se divide en tres espacios:
+- Sala de ITS: consultar fichas sobre VIH, sífilis, gonorrea y VPH, y responder preguntas sobre controles y vacunación contra el VPH.
+- Sala de métodos: clasificar métodos de barrera, hormonales, dispositivos intrauterinos, permanentes y de emergencia. Se trabaja que los métodos tienen distintos propósitos y que no todos previenen ITS.
+- Sala de decisiones: resolver situaciones sobre hablar con una pareja de prevención y controles, y acompañar a una amiga que tiene dudas sobre anticoncepción. Se refuerzan el diálogo y la consulta profesional.
+
+Para completar el nivel hay que leer las cuatro fichas, terminar la clasificación y responder los desafíos de la enfermera Rosa y el doctor Lucas.
+
+4. LA MISIÓN FINAL — OPERACIÓN ANTIBIÓTICO
+Este nivel cambia la exploración por una misión de acción con tres niveles y tres oleadas por nivel. El doctor se mueve por la arena y dispara mientras protege a la población. Los objetivos no muestran su categoría:
+- Gonorrea, sífilis y clamidia son bacterias; acertarles reduce la vida del boss.
+- VIH, VPH, hepatitis B y herpes son virus; dispararles por error reduce la protección de la población.
+- Si una bacteria llega a la zona protegida, también reduce la protección. Los virus que pasan de largo no causan daño.
+- La población comienza con 100 puntos de protección y el boss con 100 puntos de vida. La partida se gana al derrotar al boss y se pierde si la protección llega a cero o si se terminan las oleadas sin derrotarlo.
+
+Al ganar, aparece un certificado con el nombre elegido al inicio, que puede descargarse como PNG.
+
+PROGRESIÓN
+----------
+Orden recomendado: El Liceo → Rumores en Red → Centro de Salud → La Misión Final. El Centro de Salud se desbloquea al reunir al menos cuatro estrellas entre los dos primeros niveles. La Misión Final requiere completar los tres niveles previos. El modo de prueba permite saltar estos requisitos.
+
+CONTROLES
+---------
+Mapas explorables:
+- WASD o flechas: mover al personaje.
+- E: interactuar con objetos y personajes.
+- I: abrir el inventario.
+- Escape: pausar.
+
+Operación Antibiótico:
 - WASD o flechas: mover al doctor.
-- Ratón: apuntar.
-- Clic izquierdo mantenido: disparar.
-- Los proyectiles salen desde el arma del doctor.
-- El objetivo es reducir la vida del Boss a 0 antes de que la población quede sin protección.
+- Mouse: apuntar.
+- Clic izquierdo: disparar.
 
-AUDIO
-- Assets/Resources/TensionLoop.wav contiene la música instrumental de tensión.
-- Se reproduce en loop durante la misión.
-- No se utiliza el audio hablado del material anterior.
+EJECUTAR EL PROYECTO
+--------------------
+Requisitos: Node.js y npm.
 
-INTERFAZ
-- HUD de nivel y oleada.
-- Barra de vida del Boss.
-- Barra de protección de la población.
-- Puntaje y combo.
-- Mensajes de impacto.
-- Pantalla de inicio.
-- Pantalla de victoria: “¡MISIÓN COMPLETADA! Lograste superar todos los niveles”.
-- Pantalla de derrota con opción de volver a intentar.
-
-REQUISITOS
-- Unity 2022.3 LTS o compatible.
-- Abrir Assets/Scenes/FinalMission.unity y presionar Play.
-
-La interfaz y los gráficos principales se generan por código, por lo que no es necesario configurar prefabs manualmente.
+Instalar dependencias: npm install
+Iniciar en desarrollo: npm run dev
+Compilar para producción: npm run build
