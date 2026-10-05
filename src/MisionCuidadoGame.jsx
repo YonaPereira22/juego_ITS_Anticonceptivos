@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 const publicAsset = (path) => `${import.meta.env.BASE_URL}${path}`;
 
 /* ================================================================
-   MISIÓN CUIDADO: SALUD EN ACCIÓN
+   JOB QUEST: BUILD YOUR FUTURE
    Videojuego educativo 2D de exploración (React + Canvas)
    ================================================================
    Estructura del archivo (pensada para separarse en carpetas
@@ -32,70 +32,70 @@ const publicAsset = (path) => `${import.meta.env.BASE_URL}${path}`;
    DATOS EDUCATIVOS
    ================================================================ */
 
-// data/myths.js — Nivel 1: MITO o REALIDAD
+// data/myths.js — Nivel 1: professions and job clues
 const MYTHS_DATA = [
   {
     id: "myth1",
-    text: "El VIH se transmite por dar la mano, abrazar o compartir el mate con alguien.",
-    answer: "mito",
+    text: "A person who helps students learn in a classroom is a teacher.",
+    answer: "realidad",
     explanation:
-      "El VIH se transmite por sangre, semen, fluidos vaginales y leche materna. El contacto cotidiano (abrazos, mate, pileta) no transmite el virus.",
+      "A teacher explains lessons, guides activities, and supports students in class.",
   },
   {
     id: "myth2",
-    text: "Una persona puede tener una ITS y no presentar ningún síntoma.",
+    text: "A doctor works in a hospital and helps sick people.",
     answer: "realidad",
     explanation:
-      "Muchas ITS son asintomáticas durante un tiempo. Por eso son tan importantes los controles y las pruebas periódicas, aunque no haya molestias.",
+      "Doctors care for patients, diagnose problems, and suggest treatment plans.",
   },
   {
     id: "myth3",
-    text: "El preservativo, usado correctamente desde el inicio hasta el final de la relación, es uno de los métodos más eficaces para prevenir ITS y embarazos.",
+    text: "A firefighter protects people during emergencies and works with fire safety.",
     answer: "realidad",
     explanation:
-      "Es el único método que protege al mismo tiempo de un embarazo no planificado y de la mayoría de las ITS.",
+      "Firefighters respond to emergencies, protect communities, and help during dangerous situations.",
   },
   {
     id: "myth4",
-    text: "Solamente las personas con muchas parejas sexuales pueden contagiarse una ITS.",
+    text: "A farmer works in a hospital taking care of patients.",
     answer: "mito",
     explanation:
-      "Cualquier persona sexualmente activa que no se cuide puede contraer una ITS, sin importar la cantidad de parejas que haya tenido.",
+      "A farmer works outdoors with crops and animals, while doctors and nurses work in health settings.",
   },
   {
     id: "myth5",
-    text: "La anticoncepción de emergencia (pastilla del día después) puede usarse como método anticonceptivo habitual.",
-    answer: "mito",
+    text: "A pilot flies airplanes and travels to different places.",
+    answer: "realidad",
     explanation:
-      "Es un recurso para situaciones puntuales de emergencia. Tiene menor eficacia que los métodos regulares y no debe reemplazarlos.",
+      "Pilots operate aircraft and help people travel safely across cities or countries.",
   },
 ];
 
-// data/trueFalse.js + data/questions.js — Nivel 2: Rumores en Red
+// data/trueFalse.js + data/questions.js — Nivel 2: workplace behavior
 const TRUEFALSE_DATA = [
   {
     id: "tf1",
     npc: "Sofía",
-    text: "Usar dos preservativos al mismo tiempo da doble protección.",
-    answer: false,
+    text: "You should speak politely to a customer at work.",
+    answer: true,
     explanation:
-      "Al contrario: la fricción entre ambos aumenta el riesgo de que se rompan. Se recomienda usar uno solo, correctamente.",
+      "Professional communication is respectful, clear, and helpful, especially with customers.",
   },
   {
     id: "tf2",
     npc: "Bruno",
-    text: "Los síntomas de una ITS siempre son visibles a simple vista.",
+    text: "Being late to an interview is a good idea because it makes you look relaxed.",
     answer: false,
     explanation:
-      "Muchas ITS no presentan signos visibles. La única forma segura de saber es haciéndose los controles correspondientes.",
+      "Arriving on time shows responsibility and professionalism, which are important in any job interview.",
   },
   {
     id: "tf3",
     npc: "Facu",
-    text: "El coito interrumpido (retirar el pene antes de eyacular) es un método anticonceptivo confiable.",
-    answer: false,
+    text: "Listening carefully during a job interview is a good habit.",
+    answer: true,
     explanation:
-      "Es uno de los métodos menos confiables: puede haber liberación de fluido preseminal con espermatozoides antes de la eyaculación.",
+      "Good listeners show respect, focus, and interest in the conversation.",
   },
 ];
 
@@ -103,256 +103,242 @@ const MC_QUESTIONS = [
   {
     id: "mc1",
     npc: "Male",
-    text: "¿Cuál de estas opciones NO previene infecciones de transmisión sexual?",
-    options: [
-      "Preservativo",
-      "Pastillas anticonceptivas",
-      "Abstinencia",
-      "Barrera de látex bucal",
-    ],
+    text: "Which profession usually works with computers and creates technology solutions?",
+    options: ["Teacher", "Engineer", "Waiter", "Farmer"],
     correctIndex: 1,
     explanation:
-      "Las pastillas anticonceptivas previenen el embarazo, pero no protegen frente a las ITS. Para eso hace falta un método de barrera.",
+      "An engineer designs and develops systems, tools, and technical solutions for many industries.",
   },
   {
     id: "mc2",
     npc: "Ana",
-    text: "Si tenés dudas sobre tu salud sexual, ¿a quién es mejor consultar?",
-    options: [
-      "A un horóscopo o influencer",
-      "A un centro de salud o profesional de la salud",
-      "A un foro anónimo de internet",
-      "A nadie, mejor no preguntar",
-    ],
-    correctIndex: 1,
+    text: "Who is most likely to help patients in a clinic or hospital?",
+    options: ["Nurse", "Photographer", "Architect", "Barber"],
+    correctIndex: 0,
     explanation:
-      "Un centro de salud o un profesional pueden dar información confiable, actualizada y adaptada a tu situación.",
+      "A nurse helps patients, takes care of them, and supports medical teams in health settings.",
   },
 ];
 
 // data/its.js — Nivel 3, Sala 1
 const ITS_DATA = [
   {
-    id: "vih",
-    name: "VIH",
-    transmission: "Sangre, semen, fluidos vaginales y leche materna.",
-    prevention: "Uso correcto del preservativo, no compartir agujas, controles periódicos.",
-    note: "Puede no dar síntomas durante años. Solo un test lo confirma.",
+    id: "teacher",
+    name: "Teacher",
+    transmission: "Explains ideas, guides students, and organizes activities in class.",
+    prevention: "Patience, clear communication, planning, and active listening.",
+    note: "A good teacher helps different students grow and feel confident.",
   },
   {
-    id: "sifilis",
-    name: "Sífilis",
-    transmission: "Contacto sexual sin protección con una persona infectada.",
-    prevention: "Preservativo y controles periódicos, incluso sin síntomas.",
-    note: "Puede aparecer una lesión indolora que desaparece sola, aunque la infección sigue activa.",
+    id: "doctor",
+    name: "Doctor",
+    transmission: "Examines patients, diagnoses problems, and plans treatment.",
+    prevention: "Empathy, medical knowledge, careful observation, and teamwork.",
+    note: "Doctors often work with nurses and specialists to support patients.",
   },
   {
-    id: "gonorrea",
-    name: "Gonorrea",
-    transmission: "Contacto sexual sin protección.",
-    prevention: "Preservativo y realizar controles ante cualquier duda.",
-    note: "En muchos casos no presenta síntomas, sobre todo en personas con vulva.",
+    id: "nurse",
+    name: "Nurse",
+    transmission: "Cares for patients, takes vital signs, and supports medical care.",
+    prevention: "Responsibility, compassion, organization, and communication.",
+    note: "Nurses are essential in hospitals, clinics, and health centers.",
   },
   {
-    id: "vph",
-    name: "VPH",
-    transmission: "Contacto piel a piel en la zona genital, con o sin penetración.",
-    prevention: "Preservativo (reduce el riesgo, aunque no lo elimina del todo) y vacunación.",
-    note: "Existe una vacuna que previene los tipos más frecuentes asociados a esta infección.",
+    id: "engineer",
+    name: "Engineer",
+    transmission: "Designs systems, solves technical problems, and improves processes.",
+    prevention: "Creativity, logic, planning, and teamwork.",
+    note: "Engineers create solutions in areas like transport, construction, and technology.",
   },
 ];
 
 const ITS_QUIZ = [
   {
     id: "itsq1",
-    text: "¿Por qué es importante hacerse controles de ITS aunque no haya síntomas?",
+    text: "Why is it useful to prepare before a job interview?",
     options: [
-      "Porque muchas ITS no presentan signos visibles",
-      "Porque es obligatorio por ley",
-      "Porque así se cura automáticamente",
-      "No es importante si uno se siente bien",
+      "Because you can answer questions more clearly and confidently",
+      "Because interviews are always easy and require no preparation",
+      "Because your answers should never be honest",
+      "Because the interviewer does not need to understand you",
     ],
     correctIndex: 0,
     explanation:
-      "La ausencia de síntomas no significa ausencia de infección. Los controles son la única forma de saber con certeza.",
+      "Preparation helps you explain your skills and show professionalism during the interview.",
   },
   {
     id: "itsq2",
-    text: "¿Qué previene la vacuna disponible relacionada con ITS mencionada en las fichas?",
+    text: "Which quality is most important when working with other people?",
     options: [
-      "La sífilis",
-      "El VIH",
-      "Los tipos más frecuentes de VPH",
-      "La gonorrea",
+      "Being rude and impatient",
+      "Listening and communicating respectfully",
+      "Ignoring other people's opinions",
+      "Working alone without asking for help",
     ],
-    correctIndex: 2,
-    explanation: "La vacuna contra el VPH previene los tipos de este virus más asociados a enfermedad.",
+    correctIndex: 1,
+    explanation: "Respectful communication and listening are essential in every workplace.",
   },
 ];
 
 // data/contraceptiveMethods.js — Nivel 3, Sala 2
 const CONTRACEPTIVE_METHODS = [
-  { id: "preservativoM", name: "Preservativo masculino", category: "barrera" },
-  { id: "preservativoF", name: "Preservativo femenino", category: "barrera" },
-  { id: "pastillas", name: "Pastillas anticonceptivas", category: "hormonal" },
-  { id: "implante", name: "Implante subdérmico", category: "hormonal" },
-  { id: "diuCobre", name: "DIU de cobre", category: "dispositivo" },
-  { id: "diuHormonal", name: "DIU hormonal", category: "dispositivo" },
-  { id: "permanente", name: "Métodos permanentes (ligadura / vasectomía)", category: "permanente" },
-  { id: "emergencia", name: "Anticoncepción de emergencia", category: "emergencia" },
+  { id: "teacher", name: "Teacher", category: "education" },
+  { id: "doctor", name: "Doctor", category: "health" },
+  { id: "nurse", name: "Nurse", category: "health" },
+  { id: "engineer", name: "Engineer", category: "technology" },
+  { id: "architect", name: "Architect", category: "creative" },
+  { id: "journalist", name: "Journalist", category: "communication" },
+  { id: "chef", name: "Chef", category: "service" },
+  { id: "photographer", name: "Photographer", category: "creative" },
 ];
 
 const METHOD_CATEGORIES = [
-  { id: "barrera", label: "Métodos de barrera" },
-  { id: "hormonal", label: "Métodos hormonales" },
-  { id: "dispositivo", label: "Dispositivos (DIU)" },
-  { id: "permanente", label: "Métodos permanentes" },
-  { id: "emergencia", label: "Anticoncepción de emergencia" },
+  { id: "education", label: "Education" },
+  { id: "health", label: "Health" },
+  { id: "technology", label: "Technology" },
+  { id: "creative", label: "Creative" },
+  { id: "communication", label: "Communication" },
+  { id: "service", label: "Service" },
 ];
 
 // data/scenarios.js — Nivel 3, Sala 3 y decisiones de otros niveles
 const SCENARIOS_DATA = [
   {
     id: "scen1",
-    text: "Vas a tener una relación sexual con tu pareja y no sabés si alguno de los dos tiene alguna ITS. ¿Qué es lo más recomendable?",
+    text: "A classmate is rude to a customer in a store. What is the best response?",
     options: [
-      "No hablar del tema para no incomodar",
-      "Usar preservativo y proponer hacerse controles juntos",
-      "Confiar en que como se ven bien, no puede pasar nada",
-      "Preguntarle a amigos qué opinan",
+      "Laugh with them and say nothing",
+      "Stay calm, speak politely, and report the problem to a supervisor",
+      "Ignore the situation completely",
+      "Tell the customer they are wrong",
     ],
     correctIndex: 1,
     explanation:
-      "Hablarlo abiertamente, usar preservativo y hacerse controles es la forma más responsable de cuidar a ambas personas.",
+      "Professional behavior includes staying respectful and helping solve problems calmly.",
   },
   {
     id: "scen2",
-    text: "Una amiga te cuenta que dejó de tomar la pastilla anticonceptiva por su cuenta porque escuchó rumores en redes. ¿Qué le sugerís?",
+    text: "You are very nervous before a job interview. What should you do?",
     options: [
-      "Que confíe en lo que vio en un video viral",
-      "Que consulte con un profesional de la salud antes de decidir",
-      "Que directamente no use ningún método",
-      "Que se lo pregunte a otras amigas",
+      "Cancel the interview without saying anything",
+      "Practice your answers and arrive early",
+      "Avoid all eye contact",
+      "Say that you are not prepared at all",
     ],
     correctIndex: 1,
     explanation:
-      "Ante dudas sobre un método, lo más seguro es consultar con un profesional de salud, no basarse en rumores.",
+      "Being prepared and arriving on time helps you feel more confident and professional.",
   },
   {
     id: "scen_liceo",
-    text: "Un compañero te cuenta algo raro sobre el VIH que escuchó y no sabés si es cierto. ¿Qué hacés?",
+    text: "Your teacher asks you to describe your strengths in a short sentence. What is a good answer?",
     options: [
-      "Le creés sin verificar nada",
-      "Buscás información en una fuente confiable, como el centro de salud",
-      "Lo ignorás y no volvés a pensar en el tema",
-      "Se lo repetís a más gente sin confirmarlo",
+      "I am not very good at anything",
+      "I am organized, responsible, and ready to learn",
+      "I do not like teamwork",
+      "I only work when someone tells me exactly what to do",
     ],
     correctIndex: 1,
     explanation:
-      "Verificar la información en fuentes confiables evita que los mitos se sigan repitiendo.",
+      "Positive, realistic answers about your strengths show confidence and readiness to grow.",
   },
   {
     id: "scen_red",
-    text: "Te llega un mensaje reenviado que dice cosas alarmantes sobre un método anticonceptivo. ¿Qué es lo mejor que podés hacer?",
+    text: "You receive a message saying a job offer is fake and suspicious. What is the best action?",
     options: [
-      "Reenviarlo para que otros se cuiden",
-      "Contrastarlo con una fuente confiable antes de creerlo o compartirlo",
-      "Borrarlo sin pensarlo más",
-      "Creerlo porque lo mandó un amigo",
+      "Share it immediately with everyone",
+      "Check the company details and trust official information before reacting",
+      "Delete it without reading the message",
+      "Reply with personal information right away",
     ],
     correctIndex: 1,
     explanation:
-      "Antes de creer o reenviar información sensible, conviene verificarla en fuentes confiables (centro de salud, profesionales, organismos oficiales).",
+      "Verifying information before sharing or acting prevents mistakes and protects your safety.",
   },
 ];
 
-// data/missions.js — Nivel 4: fragmentos de la misión final
+// data/missions.js — Nivel 4: final mission fragments
 const MISSIONS_DATA = [
   {
     id: "frag_its",
-    label: "ITS",
-    emoji: "🧬",
+    label: "Jobs",
+    emoji: "💼",
     challenge: {
       type: "mc",
-      text: "¿Cuál de estas afirmaciones sobre las ITS es correcta?",
-      options: [
-        "Todas duelen desde el primer día",
-        "Algunas pueden no dar síntomas visibles",
-        "Solo afectan a personas adultas",
-        "Se curan solas sin control médico",
-      ],
+      text: "Which profession usually helps people who are sick?",
+      options: ["Teacher", "Doctor", "Pilot", "Chef"],
       correctIndex: 1,
-      explanation: "Varias ITS pueden cursar sin síntomas visibles; por eso importan los controles.",
+      explanation: "Doctors help patients and work in hospitals or clinics.",
     },
   },
   {
     id: "frag_prevencion",
-    label: "Prevención",
+    label: "Respect",
     emoji: "🛡️",
     challenge: {
       type: "truefalse",
-      text: "Usar preservativo correctamente reduce el riesgo de ITS y de embarazo no planificado.",
+      text: "Being polite and respectful at work is part of professional behavior.",
       answer: true,
-      explanation: "Es el único método que cuida frente a ambas cosas al mismo tiempo.",
+      explanation: "Respectful behavior helps people work together in a healthy environment.",
     },
   },
   {
     id: "frag_metodos",
-    label: "Métodos anticonceptivos",
-    emoji: "💊",
+    label: "Skills",
+    emoji: "🧠",
     challenge: {
       type: "mc",
-      text: "¿Qué grupo de métodos incluye al DIU de cobre y al DIU hormonal?",
-      options: ["Métodos de barrera", "Dispositivos intrauterinos", "Métodos permanentes", "Anticoncepción de emergencia"],
-      correctIndex: 1,
-      explanation: "Ambos DIU son dispositivos que se colocan dentro del útero.",
+      text: "Which skill is especially important for a good interview?",
+      options: ["Listening carefully", "Ignoring the questions", "Arriving late", "Talking loudly all the time"],
+      correctIndex: 0,
+      explanation: "Listening carefully helps you answer clearly and show interest in the conversation.",
     },
   },
   {
     id: "frag_mitos",
-    label: "Mitos y realidades",
+    label: "Job myths",
     emoji: "💭",
     challenge: {
       type: "mito",
-      text: "Si dos personas recién se conocen, no hace falta cuidarse la primera vez.",
+      text: "It is enough to be friendly if you are late to a job interview.",
       answer: "mito",
-      explanation: "El riesgo de ITS o embarazo no depende de cuánto tiempo se conocen las personas, sino de si se cuidan o no.",
+      explanation: "Punctuality and preparation are more important than being only friendly.",
     },
   },
   {
     id: "frag_autocuidado",
-    label: "Autocuidado",
-    emoji: "💚",
+    label: "Professional habits",
+    emoji: "✅",
     challenge: {
       type: "mc",
-      text: "¿Cuál de estas actitudes forma parte del autocuidado en las relaciones?",
+      text: "Which action shows responsibility at work?",
       options: [
-        "Hacer algo aunque no tengas ganas para no incomodar",
-        "Poder decir que no y que se respete tu decisión",
-        "Evitar hablar de lo que sentís",
-        "Guardarte las dudas para no parecer inexperto/a",
+        "Completing tasks on time",
+        "Leaving without telling anyone",
+        "Ignoring deadlines",
+        "Using your phone during a meeting without permission",
       ],
-      correctIndex: 1,
-      explanation: "El consentimiento y la comunicación son parte central del autocuidado y del cuidado del otro.",
+      correctIndex: 0,
+      explanation: "Responsibility means meeting deadlines and acting professionally.",
     },
   },
 ];
 
 const BONUS_FRAGMENT = {
   id: "frag_bonus",
-  label: "Dato extra",
+  label: "Career tip",
   emoji: "✨",
-  text: "Dato encontrado: pedir ayuda o hacer una consulta a tiempo también es una forma de cuidarse.",
+  text: "Tip: preparation, respect, and clear communication help you succeed in the workplace.",
 };
 
 const FINAL_MISSION_TARGETS = [
-  { id: "gonorrea", name: "Gonorrea", kind: "bacteria", icon: "🦠", color: "#FFB347" },
-  { id: "sifilis", name: "Sífilis", kind: "bacteria", icon: "🧫", color: "#FFB347" },
-  { id: "clamidia", name: "Clamidia", kind: "bacteria", icon: "🧬", color: "#FFB347" },
-  { id: "vih", name: "VIH", kind: "virus", icon: "🧪", color: "#B78CFF" },
-  { id: "vph", name: "VPH", kind: "virus", icon: "🧬", color: "#B78CFF" },
-  { id: "hepatitis-b", name: "Hepatitis B", kind: "virus", icon: "🧪", color: "#B78CFF" },
-  { id: "herpes", name: "Herpes", kind: "virus", icon: "🔬", color: "#B78CFF" },
+  { id: "teacher", name: "Teacher", kind: "bacteria", icon: "📚", color: "#C6F135" },
+  { id: "doctor", name: "Doctor", kind: "virus", icon: "🩺", color: "#8DB4FF" },
+  { id: "nurse", name: "Nurse", kind: "bacteria", icon: "🩹", color: "#FFB347" },
+  { id: "engineer", name: "Engineer", kind: "virus", icon: "🛠️", color: "#B78CFF" },
+  { id: "architect", name: "Architect", kind: "bacteria", icon: "🏗️", color: "#FFB347" },
+  { id: "journalist", name: "Journalist", kind: "virus", icon: "📰", color: "#8DB4FF" },
+  { id: "chef", name: "Chef", kind: "bacteria", icon: "🍳", color: "#C6F135" },
 ];
 
 /* ================================================================
@@ -491,8 +477,8 @@ function buildLevels() {
   const W1 = 1536, H1 = 1024;
   const level1 = {
     id: "liceo",
-    name: "El Liceo",
-    subtitle: "Mitos y realidades",
+    name: "Job Clues",
+    subtitle: "Professions and careers",
     width: W1,
     height: H1,
     backgroundImage: publicAsset("liceo.png"),
@@ -676,8 +662,8 @@ function buildLevels() {
   const W2 = 1152, H2 = 768;
   const level2 = {
     id: "rumores",
-    name: "Rumores en Red",
-    subtitle: "Prevención y toma de decisiones",
+    name: "Workplace Decisions",
+    subtitle: "Professional behavior and workplace rules",
     width: W2,
     height: H2,
     backgroundImage: publicAsset("plaza.png"),
@@ -796,8 +782,8 @@ function buildLevels() {
   const W3 = 1152, H3 = 768;
   const level3 = {
     id: "centro",
-    name: "Centro de Salud",
-    subtitle: "ITS y métodos anticonceptivos",
+    name: "Career Center",
+    subtitle: "Jobs, skills and interview preparation",
     width: W3,
     height: H3,
     backgroundImage: publicAsset("hospital.png"),
@@ -907,8 +893,8 @@ function buildLevels() {
   const W4 = 1500, H4 = 950;
   const level4 = {
     id: "mision",
-    name: "La Misión Final",
-    subtitle: "Información confiable para el liceo",
+    name: "Final Mission",
+    subtitle: "Apply everything to get the job",
     width: W4,
     height: H4,
     floorColor: "#EAF7EC",
@@ -996,9 +982,10 @@ function StarRow({ count, size = 18 }) {
   );
 }
 
-function PixelPanel({ children, style }) {
+function PixelPanel({ children, role, style }) {
   return (
     <div
+      role={role}
       style={{
         background: "rgba(16, 22, 58, 0.92)",
         border: "3px solid #C6F135",
@@ -1013,13 +1000,36 @@ function PixelPanel({ children, style }) {
   );
 }
 
-function BigButton({ children, onClick, color = "#C6F135", dark = false, style }) {
+const editorInputStyle = {
+  display: "block",
+  width: "100%",
+  marginTop: 3,
+  padding: "6px 7px",
+  borderRadius: 5,
+  border: "1px solid #8DB4FF",
+  background: "#10163A",
+  color: "#F5F5F5",
+  font: "inherit",
+};
+
+const editorActionButtonStyle = {
+  border: "1px solid #617098",
+  borderRadius: 5,
+  padding: "4px 6px",
+  background: "#26344A",
+  color: "#F5F5F5",
+  cursor: "pointer",
+};
+
+function BigButton({ children, onClick, color = "#C6F135", dark = false, disabled = false, style }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       style={{
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.65 : 1,
         fontFamily: "'Baloo 2', sans-serif",
         fontWeight: 700,
         fontSize: 16,
@@ -1040,8 +1050,47 @@ function BigButton({ children, onClick, color = "#C6F135", dark = false, style }
   );
 }
 
+const UI_TEXT = {
+  es: {
+    introLine: "Explora. Descubrí. Decidí.",
+    writeName: "Escribí tu nombre y elegí un avatar:",
+    placeholder: "Tu nombre",
+    startAs: "Comenzar como",
+    player: "jugador",
+    mapTitle: "MAPA DE JOB QUEST",
+    playingAs: "Jugando como",
+    locked: "Bloqueado",
+    testMode: "MODO PRUEBA",
+    testModeText: "Acceso rápido para probar cualquier mapa sin completar los anteriores.",
+    quickTooltip: "Nivel 3 se desbloquea al reunir al menos 4 estrellas entre Career Clues y Workplace Signals. Nivel 4 se desbloquea al completar los tres niveles anteriores.",
+    labelCareerClues: "Career Clues",
+    labelSignals: "Workplace Signals",
+    labelCareerCenter: "Career Center",
+    labelFinalMission: "Final Mission",
+    labelStart: "Comenzar",
+  },
+  en: {
+    introLine: "Explore. Discover. Decide.",
+    writeName: "Write your name and choose an avatar:",
+    placeholder: "Your name",
+    startAs: "Start as",
+    player: "player",
+    mapTitle: "JOB QUEST MAP",
+    playingAs: "Playing as",
+    locked: "Locked",
+    testMode: "TEST MODE",
+    testModeText: "Quick access to test any map without completing the previous ones.",
+    quickTooltip: "Level 3 unlocks after gathering at least 4 stars between Career Clues and Workplace Signals. Level 4 unlocks after completing the previous three levels.",
+    labelCareerClues: "Career Clues",
+    labelSignals: "Workplace Signals",
+    labelCareerCenter: "Career Center",
+    labelFinalMission: "Final Mission",
+    labelStart: "Start",
+  },
+};
+
 /* ---------- Pantalla de selección de personaje ---------- */
-function CharacterSelectScreen({ onSelect }) {
+function CharacterSelectScreen({ onSelect, language = "es" }) {
   const [hover, setHover] = useState(null);
   const [selectedAvatar, setSelectedAvatar] = useState(CHARACTERS[0]);
   const [playerName, setPlayerName] = useState("");
@@ -1052,24 +1101,26 @@ function CharacterSelectScreen({ onSelect }) {
     onSelect({ ...selectedAvatar, name });
   }
 
+  const text = UI_TEXT[language] || UI_TEXT.es;
+
   return (
     <div style={styles.centerScreen}>
-      <h1 style={styles.title}>MISIÓN CUIDADO</h1>
-      <p style={styles.subtitle}>— LA RUTA DEL CUIDADO —</p>
+      <h1 style={styles.title}>JOB QUEST</h1>
+      <p style={styles.subtitle}>— BUILD YOUR FUTURE —</p>
       <p style={{ color: "#C9CFEA", marginBottom: 28, fontFamily: "'Inter', sans-serif" }}>
-        Explorá. Descubrí. Decidí.
+        {text.introLine}
       </p>
       <PixelPanel style={{ padding: 28, maxWidth: 560 }}>
         <p style={{ marginTop: 0, marginBottom: 18, fontFamily: "'Inter', sans-serif" }}>
-          Escribí tu nombre y elegí un avatar:
+          {text.writeName}
         </p>
         <input
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && startGame()}
-          placeholder="Tu nombre"
+          placeholder={text.placeholder}
           maxLength={24}
-          aria-label="Nombre del jugador"
+          aria-label={text.placeholder}
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -1119,7 +1170,7 @@ function CharacterSelectScreen({ onSelect }) {
           color={playerName.trim() ? "#C6F135" : "#788594"}
           style={{ marginTop: 24, cursor: playerName.trim() ? "pointer" : "not-allowed" }}
         >
-          Comenzar como {playerName.trim() || "jugador"}
+          {text.startAs} {playerName.trim() || text.player}
         </BigButton>
       </PixelPanel>
     </div>
@@ -1127,18 +1178,19 @@ function CharacterSelectScreen({ onSelect }) {
 }
 
 /* ---------- Pantalla de mapa general ---------- */
-function MapScreen({ progress, onEnterLevel, character }) {
+function MapScreen({ progress, onEnterLevel, character, language = "es" }) {
+  const text = UI_TEXT[language] || UI_TEXT.es;
   const nodes = [
-    { id: "liceo", icon: "🏫", label: "El Liceo" },
-    { id: "rumores", icon: "🗣️", label: "Rumores en Red" },
-    { id: "centro", icon: "🏥", label: "Centro de Salud" },
-    { id: "mision", icon: "🎯", label: "La Misión Final" },
+    { id: "liceo", icon: "🏫", label: text.labelCareerClues },
+    { id: "rumores", icon: "🗣️", label: text.labelSignals },
+    { id: "centro", icon: "🏢", label: text.labelCareerCenter },
+    { id: "mision", icon: "🎯", label: text.labelFinalMission },
   ];
   return (
     <div style={styles.centerScreen}>
-      <h1 style={{ ...styles.title, fontSize: 40 }}>MAPA DE MISIÓN CUIDADO</h1>
+      <h1 style={{ ...styles.title, fontSize: 40 }}>{text.mapTitle}</h1>
       <p style={{ color: "#C9CFEA", marginBottom: 24, fontFamily: "'Inter', sans-serif" }}>
-        Jugando como {character.emoji} {character.name}
+        {text.playingAs} {character.emoji} {character.name}
       </p>
       <div
         style={{
@@ -1173,7 +1225,7 @@ function MapScreen({ progress, onEnterLevel, character }) {
               </div>
               <div style={{ marginTop: 6 }}>
                 {locked ? (
-                  <span style={{ fontSize: 12, color: "#8891C4" }}>Bloqueado</span>
+                  <span style={{ fontSize: 12, color: "#8891C4" }}>{text.locked}</span>
                 ) : (
                   <StarRow count={p.stars} size={16} />
                 )}
@@ -1183,9 +1235,9 @@ function MapScreen({ progress, onEnterLevel, character }) {
         })}
       </div>
       <PixelPanel style={{ marginTop: 26, padding: "14px 18px", borderColor: "#FFB347", textAlign: "center" }}>
-        <div style={{ color: "#FFB347", fontWeight: 700, marginBottom: 8 }}>MODO PRUEBA</div>
+        <div style={{ color: "#FFB347", fontWeight: 700, marginBottom: 8 }}>{text.testMode}</div>
         <div style={{ color: "#C9CFEA", fontSize: 12, marginBottom: 10 }}>
-          Acceso rápido para probar cualquier mapa sin completar los anteriores.
+          {text.testModeText}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
           {nodes.map((n) => (
@@ -1195,14 +1247,13 @@ function MapScreen({ progress, onEnterLevel, character }) {
               color="#FFB347"
               style={{ fontSize: 13, padding: "7px 12px" }}
             >
-              Probar {n.label}
+              {language === "es" ? "Probar" : "Test"} {n.label}
             </BigButton>
           ))}
         </div>
       </PixelPanel>
       <p style={{ marginTop: 28, color: "#8891C4", fontFamily: "'Inter', sans-serif", fontSize: 13, maxWidth: 480, textAlign: "center" }}>
-        Nivel 3 se desbloquea al reunir al menos 4 estrellas entre El Liceo y Rumores en Red.
-        Nivel 4 se desbloquea al completar los tres niveles anteriores.
+        {text.quickTooltip}
       </p>
     </div>
   );
@@ -2066,24 +2117,91 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   const [levelDone, setLevelDone] = useState(false);
   const [editorMode, setEditorMode] = useState(false);
   const [editorWalls, setEditorWalls] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`zelia-walls-${levelConfig.id}`);
-      if (!saved) return [...(levelConfig.collisionWalls || levelConfig.walls)];
-      const walls = JSON.parse(saved);
-      const cleanedWalls = walls.filter((wall) => wall.w * wall.h >= 500);
-      if (cleanedWalls.length !== walls.length) {
-        localStorage.setItem(`zelia-walls-${levelConfig.id}`, JSON.stringify(cleanedWalls));
-      }
-      return cleanedWalls;
-    } catch {
-      return [...(levelConfig.collisionWalls || levelConfig.walls)];
-    }
+    return [...(levelConfig.collisionWalls || levelConfig.walls)];
   });
+  const [editorContent, setEditorContent] = useState(() => {
+    return {
+      npcs: [],
+      objects: [],
+      removedNpcIds: [],
+      removedObjectIds: [],
+      exit: { x: 1420, y: 360, w: 95, h: 55, label: "EXIT →" },
+    };
+  });
+  const [projectDataReady, setProjectDataReady] = useState(false);
+  const [projectDataError, setProjectDataError] = useState("");
+  const [projectSaveStatus, setProjectSaveStatus] = useState("");
+  const projectDataRef = useRef({ levels: {} });
+  const [entityEditorMode, setEntityEditorMode] = useState(false);
+  const [entityTool, setEntityTool] = useState("npc");
+  const [entityDraft, setEntityDraft] = useState(null);
+  const [entityEditorError, setEntityEditorError] = useState("");
   const toastTimer = useRef(null);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadProjectData() {
+      if (!import.meta.env.DEV) {
+        setProjectDataError("La edición que guarda cambios en los archivos del proyecto está disponible al ejecutar npm run dev.");
+        setProjectDataReady(true);
+        return;
+      }
+      try {
+        const response = await fetch("/__job-quest/editor-data");
+        if (!response.ok) throw new Error(`El servidor respondió ${response.status}.`);
+        const data = await response.json();
+        if (!data.levels || typeof data.levels !== "object") {
+          throw new Error("El archivo src/editorData.json no tiene un formato válido.");
+        }
+        if (cancelled) return;
+        projectDataRef.current = data;
+        const savedLevel = data.levels[levelConfig.id];
+        if (savedLevel) {
+          if (Array.isArray(savedLevel.walls)) setEditorWalls(savedLevel.walls);
+          if (savedLevel.content) {
+            setEditorContent((current) => ({ ...current, ...savedLevel.content }));
+          }
+        }
+        setProjectDataError("");
+      } catch (error) {
+        if (!cancelled) {
+          setProjectDataError(`No se pudieron cargar los datos del proyecto: ${error.message}`);
+        }
+      } finally {
+        if (!cancelled) setProjectDataReady(true);
+      }
+    }
+    loadProjectData();
+    return () => {
+      cancelled = true;
+    };
+  }, [levelConfig.id, levelConfig.collisionWalls, levelConfig.walls]);
+
+  const editableLevelConfig = useMemo(() => {
+    if (levelConfig.id !== "liceo") return levelConfig;
+    const editableNpcs = editorContent.npcs;
+    const editableObjects = editorContent.objects;
+    const visibleNpcs = levelConfig.npcs.filter((npc) => !editorContent.removedNpcIds.includes(npc.id));
+    const visibleObjects = levelConfig.objects.filter((object) => !editorContent.removedObjectIds.includes(object.id));
+    return {
+      ...levelConfig,
+      npcs: [...visibleNpcs, ...editableNpcs],
+      objects: [...visibleObjects, ...editableObjects],
+      exit: editorContent.exit,
+      customObjectives: true,
+      objectivesRequired: [
+        ...levelConfig.objectivesRequired.filter((id) => !editorContent.removedObjectIds.includes(id)),
+        ...editableNpcs.map((npc) => npc.id),
+        ...editableObjects.map((object) => object.id),
+      ],
+    };
+  }, [levelConfig, editorContent]);
+
+  useEffect(() => {
     if (levelConfig.id === "liceo") {
-      const guide = levelConfig.npcs.find((npc) => npc.id === "prof_ana");
+      const guide = editorContent.removedNpcIds.includes("prof_ana")
+        ? null
+        : levelConfig.npcs.find((npc) => npc.id === "prof_ana");
       if (guide) setModal({ kind: "dialogue", npc: guide, lineIndex: 0 });
     }
   }, [levelConfig]);
@@ -2123,7 +2241,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nearby, modal]);
+  }, [nearby, modal, entityEditorMode]);
 
   const nearbyRef = useRef(null);
   useEffect(() => {
@@ -2131,7 +2249,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   }, [nearby]);
 
   function handleInteractKey() {
-    if (modalOpenRef.current || pausedRef.current) return;
+    if (modalOpenRef.current || pausedRef.current || entityEditorMode) return;
     const n = nearbyRef.current;
     if (!n) return;
     openInteraction(n.target);
@@ -2155,7 +2273,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   }
 
   function checkExit() {
-    if (!areLevelObjectivesComplete(levelConfig, runtimeRef.current)) {
+    if (!areLevelObjectivesComplete(editableLevelConfig, runtimeRef.current)) {
       showToast("Todavía hay cosas por resolver en este nivel 🔎");
       return;
     }
@@ -2166,11 +2284,194 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
 
   function updateEditorWalls(nextWalls) {
     setEditorWalls(nextWalls);
-    localStorage.setItem(`zelia-walls-${levelConfig.id}`, JSON.stringify(nextWalls));
   }
 
   function resetEditorWalls() {
     updateEditorWalls([...(levelConfig.collisionWalls || levelConfig.walls)]);
+  }
+
+  function saveEditorContent(nextContent) {
+    setEditorContent(nextContent);
+  }
+
+  async function persistEditorProject() {
+    if (!projectDataReady || projectDataError) {
+      throw new Error(projectDataError || "Todavía se están cargando los datos del proyecto.");
+    }
+    const nextProjectData = {
+      ...projectDataRef.current,
+      levels: {
+        ...projectDataRef.current.levels,
+        [levelConfig.id]: {
+          walls: editorWalls,
+          content: editorContent,
+        },
+      },
+    };
+    const response = await fetch("/__job-quest/editor-data", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nextProjectData),
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || `El servidor respondió ${response.status}.`);
+    }
+    projectDataRef.current = nextProjectData;
+    setProjectSaveStatus("Guardado en src/editorData.json");
+    window.setTimeout(() => setProjectSaveStatus(""), 1800);
+  }
+
+  async function closeEditor(editor) {
+    if (editor === "entities" && entityDraft) {
+      setEntityEditorError("Guardá o cancelá el elemento que estás editando antes de cerrar el lápiz.");
+      return;
+    }
+    setProjectSaveStatus("Guardando en el proyecto...");
+    setEntityEditorError("");
+    try {
+      await persistEditorProject();
+      if (editor === "walls") setEditorMode(false);
+      if (editor === "entities") {
+        setEntityEditorMode(false);
+        setEntityDraft(null);
+      }
+    } catch (error) {
+      setProjectSaveStatus("");
+      setEntityEditorError(`No se pudo guardar en el proyecto: ${error.message}`);
+    }
+  }
+
+  function startEntityPlacement(type) {
+    setEntityTool(type);
+    setEntityDraft(null);
+    setEntityEditorError("");
+    showToast(type === "exit" ? "Hacé clic sobre el cartel EXIT para ubicar la salida." : "Hacé clic en el mapa para colocar el elemento.");
+  }
+
+  function handleEntityPlacement(position) {
+    if (entityTool === "exit") {
+      try {
+        saveEditorContent({
+          ...editorContent,
+          exit: { x: position.x - 50, y: position.y - 30, w: 100, h: 60, label: "EXIT →" },
+        });
+        showToast("Salida ubicada y guardada.");
+      } catch (error) {
+        setEntityEditorError(`No se pudo guardar la salida: ${error.message}`);
+      }
+      return;
+    }
+    const id = `editor-${entityTool}-${Date.now()}`;
+    setEntityDraft({
+      id,
+      type: entityTool,
+      x: position.x,
+      y: position.y,
+      name: "",
+      label: "",
+      emoji: entityTool === "npc" ? "🧑‍💼" : "📌",
+      content: "",
+    });
+    setEntityEditorError("");
+  }
+
+  function saveEntityDraft(event) {
+    event.preventDefault();
+    if (!entityDraft) return;
+    const content = entityDraft.content.trim();
+    const title = (entityDraft.type === "npc" ? entityDraft.name : entityDraft.label).trim();
+    if (!title || !content) {
+      setEntityEditorError("Completá el nombre o título y el contenido antes de guardar.");
+      return;
+    }
+    const entry = entityDraft.type === "npc"
+      ? {
+          id: entityDraft.id,
+          x: entityDraft.x,
+          y: entityDraft.y,
+          name: title,
+          emoji: entityDraft.emoji || "🧑‍💼",
+          color: "#FFB347",
+          dialogue: content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+          editorCreated: true,
+        }
+      : {
+          id: entityDraft.id,
+          x: entityDraft.x,
+          y: entityDraft.y,
+          type: "pista",
+          label: title,
+          emoji: entityDraft.emoji || "📌",
+          text: content,
+          editorCreated: true,
+        };
+    const key = entityDraft.type === "npc" ? "npcs" : "objects";
+    const entries = editorContent[key];
+    const exists = entries.some((item) => item.id === entry.id);
+    try {
+      saveEditorContent({
+        ...editorContent,
+        [key]: exists
+          ? entries.map((item) => item.id === entry.id ? entry : item)
+          : [...entries, entry],
+      });
+      setEntityDraft(null);
+      setEntityEditorError("");
+      showToast("Elemento listo. Cerrá el lápiz para guardarlo en el proyecto.");
+    } catch (error) {
+      setEntityEditorError(`No se pudo guardar el elemento: ${error.message}`);
+    }
+  }
+
+  function editEntity(type, item) {
+    setEntityTool(type);
+    setEntityDraft({
+      id: item.id,
+      type,
+      x: item.x,
+      y: item.y,
+      name: type === "npc" ? item.name : "",
+      label: type === "pista" ? item.label : "",
+      emoji: item.emoji,
+      content: type === "npc" ? (item.dialogue || []).join("\n") : item.text,
+    });
+    setEntityEditorError("");
+  }
+
+  function removeEntity(type, id) {
+    const key = type === "npc" ? "npcs" : "objects";
+    const customItems = editorContent[key];
+    const isCustomItem = customItems.some((item) => item.id === id);
+    const removedKey = type === "npc" ? "removedNpcIds" : "removedObjectIds";
+    try {
+      saveEditorContent({
+        ...editorContent,
+        [key]: customItems.filter((item) => item.id !== id),
+        [removedKey]: isCustomItem
+          ? editorContent[removedKey]
+          : [...editorContent[removedKey], id],
+      });
+      if (entityDraft?.id === id) setEntityDraft(null);
+      setEntityEditorError("");
+    } catch (error) {
+      setEntityEditorError(`No se pudo eliminar el elemento: ${error.message}`);
+    }
+  }
+
+  function removeEntityAt(position) {
+    const candidates = [
+      ...editorContent.npcs.map((item) => ({ type: "npc", item })),
+      ...editorContent.objects.map((item) => ({ type: "pista", item })),
+    ];
+    const nearest = candidates
+      .map((candidate) => ({
+        ...candidate,
+        distance: distance(position.x, position.y, candidate.item.x + 18, candidate.item.y + 18),
+      }))
+      .filter((candidate) => candidate.distance < 48)
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (nearest) removeEntity(nearest.type, nearest.item.id);
   }
 
   /* ---------- abrir interacción según tipo de entidad ---------- */
@@ -2295,17 +2596,23 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         }}
       >
         <BigButton
-          onClick={() => setEditorMode((value) => !value)}
+          onClick={() => {
+            if (editorMode) closeEditor("walls");
+            else setEditorMode(true);
+          }}
           color={editorMode ? "#FFB347" : "#8DB4FF"}
           style={{ fontSize: 12, padding: "6px 10px" }}
+          disabled={!projectDataReady || !!projectDataError || !!projectSaveStatus}
         >
-          {editorMode ? "Cerrar editor" : "✏ Editar muros"}
+          {!projectDataReady ? "Cargando editor..." : editorMode ? "Guardar y cerrar muros" : "✏ Editar muros"}
         </BigButton>
         {editorMode && (
           <PixelPanel style={{ marginTop: 8, padding: 10, width: 235, borderColor: "#FFB347", fontSize: 11 }}>
             Arrastrá para dibujar un muro. Clic derecho para borrarlo.
             <br />
-            Los cambios se guardan en este navegador.
+            Al cerrar, los muros quedan guardados en src/editorData.json dentro del proyecto.
+            {projectDataError && <p role="alert" style={{ color: "#FF8FB1" }}>{projectDataError}</p>}
+            {projectSaveStatus && <p role="status" style={{ color: "#C6F135" }}>{projectSaveStatus}</p>}
             <button
               onClick={resetEditorWalls}
               style={{ marginTop: 8, padding: "5px 8px", cursor: "pointer", borderRadius: 6, border: 0 }}
@@ -2315,9 +2622,134 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           </PixelPanel>
         )}
       </div>
+      {levelConfig.id === "liceo" && (
+        <div style={{ position: "absolute", top: 48, right: 12, zIndex: 50 }}>
+          <BigButton
+            onClick={() => {
+              if (entityEditorMode) {
+                closeEditor("entities");
+              } else {
+                setEntityEditorMode(true);
+                setEntityDraft(null);
+                setEntityEditorError("");
+              }
+            }}
+            color={entityEditorMode ? "#FFB347" : "#C6F135"}
+            style={{ fontSize: 12, padding: "6px 10px" }}
+            disabled={!projectDataReady || !!projectDataError || !!projectSaveStatus}
+          >
+            {!projectDataReady ? "Cargando editor..." : entityEditorMode ? "Guardar y cerrar lápiz" : "✏ NPC y pistas"}
+          </BigButton>
+          {entityEditorMode && (
+            <PixelPanel style={{ marginTop: 8, padding: 12, width: 270, maxHeight: 440, overflowY: "auto", borderColor: "#C6F135", fontSize: 12 }}>
+              <strong>Colocar en el mapa</strong>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                {[
+                  ["npc", "👤 NPC"],
+                  ["pista", "📌 Pista"],
+                  ["exit", "🚪 Salida"],
+                  ["borrar", "⌫ Borrar"],
+                ].map(([tool, label]) => (
+                  <button
+                    key={tool}
+                    type="button"
+                    onClick={() => startEntityPlacement(tool)}
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: entityTool === tool ? "2px solid #C6F135" : "1px solid #3A4270",
+                      background: entityTool === tool ? "#26344A" : "#151B40",
+                      color: "#F5F5F5",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p style={{ color: "#C9CFEA", margin: "8px 0" }}>
+                Elegí una herramienta y hacé clic en el mapa. Usá WASD para moverte por el escenario. NPC y pista permiten escribir su contenido.
+              </p>
+              {entityDraft && (
+                <form onSubmit={saveEntityDraft} style={{ display: "grid", gap: 7, marginTop: 10 }}>
+                  <strong>{entityDraft.id.startsWith("editor-") && !editorContent.npcs.concat(editorContent.objects).some((item) => item.id === entityDraft.id) ? "Nuevo elemento" : "Editar elemento"}</strong>
+                  <label>
+                    {entityDraft.type === "npc" ? "Nombre" : "Título"}
+                    <input
+                      value={entityDraft.type === "npc" ? entityDraft.name : entityDraft.label}
+                      onChange={(event) => setEntityDraft({
+                        ...entityDraft,
+                        [entityDraft.type === "npc" ? "name" : "label"]: event.target.value,
+                      })}
+                      maxLength={40}
+                      required
+                      style={editorInputStyle}
+                    />
+                  </label>
+                  <label>
+                    Emoji
+                    <input
+                      value={entityDraft.emoji}
+                      onChange={(event) => setEntityDraft({ ...entityDraft, emoji: event.target.value })}
+                      maxLength={8}
+                      style={editorInputStyle}
+                    />
+                  </label>
+                  <label>
+                    {entityDraft.type === "npc" ? "Diálogo (una línea por mensaje)" : "Contenido de la pista"}
+                    <textarea
+                      value={entityDraft.content}
+                      onChange={(event) => setEntityDraft({ ...entityDraft, content: event.target.value })}
+                      rows={4}
+                      maxLength={600}
+                      required
+                      style={{ ...editorInputStyle, resize: "vertical" }}
+                    />
+                  </label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="submit" style={editorActionButtonStyle}>Guardar</button>
+                    <button type="button" onClick={() => setEntityDraft(null)} style={editorActionButtonStyle}>Cancelar</button>
+                  </div>
+                </form>
+              )}
+              {entityEditorError && <p role="alert" style={{ color: "#FF8FB1" }}>{entityEditorError}</p>}
+              {projectDataError && <p role="alert" style={{ color: "#FF8FB1" }}>{projectDataError}</p>}
+              {projectSaveStatus && <p role="status" style={{ color: "#C6F135" }}>{projectSaveStatus}</p>}
+              <strong style={{ display: "block", marginTop: 10 }}>Elementos colocados</strong>
+              {[
+                ...editableLevelConfig.npcs.map((item) => ({ item, type: "npc" })),
+                ...editableLevelConfig.objects.map((item) => ({ item, type: "pista" })),
+              ].map(({ item, type }) => (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.emoji} {type === "npc" ? item.name : item.label}</span>
+                  {item.editorCreated && <button type="button" onClick={() => editEntity(type, item)} style={editorActionButtonStyle}>Editar</button>}
+                  <button type="button" onClick={() => removeEntity(type, item.id)} style={editorActionButtonStyle}>×</button>
+                </div>
+              ))}
+            </PixelPanel>
+          )}
+        </div>
+      )}
+      {(projectDataError || entityEditorError || projectSaveStatus) && (
+        <PixelPanel
+          role={projectDataError || entityEditorError ? "alert" : "status"}
+          style={{
+            position: "absolute",
+            top: 88,
+            left: 12,
+            zIndex: 49,
+            maxWidth: 300,
+            padding: 10,
+            borderColor: projectDataError || entityEditorError ? "#FF8FB1" : "#C6F135",
+            fontSize: 12,
+          }}
+        >
+          {projectDataError || entityEditorError || projectSaveStatus}
+        </PixelPanel>
+      )}
       <GameCanvas
         canvasRef={canvasRef}
-        levelConfig={levelConfig}
+        levelConfig={editableLevelConfig}
         character={character}
         playerRef={playerRef}
         cameraRef={cameraRef}
@@ -2330,6 +2762,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         editorMode={editorMode}
         editorWalls={editorWalls}
         onEditorWallsChange={updateEditorWalls}
+        entityEditorMode={entityEditorMode}
+        entityTool={entityTool}
+        onEntityPlace={handleEntityPlacement}
+        onEntityRemoveAt={removeEntityAt}
       />
       <InteractPrompt label={nearby ? nearby.label : null} />
       <Toast text={toast} />
@@ -2346,6 +2782,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           onNext={() => {
             if (modal.lineIndex + 1 >= modal.npc.dialogue.length) {
               runtimeRef.current.doneNpcs[modal.npc.id + "_talked"] = true;
+              if (modal.npc.editorCreated) {
+                runtimeRef.current.doneNpcs[modal.npc.id] = true;
+                runtimeRef.current.doneObjects[modal.npc.id] = true;
+              }
               if (modal.npc.challenge) {
                 openChallengeForNpc(modal.npc);
               } else {
@@ -2456,7 +2896,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
 
       {levelDone && (
         <LevelDoneOverlay
-          levelConfig={levelConfig}
+          levelConfig={editableLevelConfig}
           stars={currentStarCount()}
           onContinue={() => onLevelFinished(levelConfig.id, currentStarCount())}
         />
@@ -2491,6 +2931,10 @@ function GameCanvas({
   editorMode,
   editorWalls,
   onEditorWallsChange,
+  entityEditorMode,
+  entityTool,
+  onEntityPlace,
+  onEntityRemoveAt,
 }) {
   const lastNearbyId = useRef(null);
   const stepSoundTimer = useRef(0);
@@ -2712,7 +3156,7 @@ function GameCanvas({
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [levelConfig, editorMode, editorWalls]);
+  }, [levelConfig, editorMode, editorWalls, entityEditorMode]);
 
   return (
     <canvas
@@ -2723,11 +3167,11 @@ function GameCanvas({
         display: "block",
         borderRadius: "0 0 14px 14px",
         boxShadow: "0 10px 0 rgba(0,0,0,0.35)",
-        cursor: editorMode ? "crosshair" : "default",
+        cursor: editorMode || entityEditorMode ? "crosshair" : "default",
       }}
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => {
-        if (!editorMode) return;
+        if (!editorMode && !entityEditorMode) return;
         const rect = event.currentTarget.getBoundingClientRect();
         const scaleX = VIEW_W / rect.width;
         const scaleY = VIEW_H / rect.height;
@@ -2735,6 +3179,12 @@ function GameCanvas({
         const y = event.clientY - rect.top;
         const worldX = x * scaleX + cameraRef.current.x;
         const worldY = y * scaleY + cameraRef.current.y;
+        if (entityEditorMode) {
+          if (entityTool === "borrar") onEntityRemoveAt({ x: worldX, y: worldY });
+          else onEntityPlace({ x: worldX, y: worldY });
+          return;
+        }
+        if (!editorMode) return;
         if (event.button === 2) {
           const index = editorWalls.findIndex((wall) => rectsOverlap({ x: worldX, y: worldY, w: 1, h: 1 }, wall));
           if (index >= 0) onEditorWallsChange(editorWalls.filter((_, wallIndex) => wallIndex !== index));
@@ -2871,6 +3321,10 @@ function drawNpc(ctx, npc) {
   ctx.font = "700 11px 'Inter', sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(npc.name, npc.x + 20, npc.y - 7);
+  if (npc.editorCreated && npc.emoji) {
+    ctx.font = "18px sans-serif";
+    ctx.fillText(npc.emoji, npc.x + 17, npc.y + 5);
+  }
   ctx.restore();
 }
 
@@ -2915,6 +3369,7 @@ const LEVELS = buildLevels();
 
 export default function MisionCuidadoGame() {
   const [screen, setScreen] = useState("select"); // select | map | game
+  const [language, setLanguage] = useState("es");
   const [character, setCharacter] = useState(null);
   const [currentLevelId, setCurrentLevelId] = useState(null);
   const [lastResult, setLastResult] = useState(null); // {levelId, stars}
@@ -2973,10 +3428,29 @@ export default function MisionCuidadoGame() {
         body { margin: 0; }
       `}</style>
 
-      {screen === "select" && <CharacterSelectScreen onSelect={handleSelectCharacter} />}
+      <div style={{ position: "fixed", top: 18, right: 18, zIndex: 50 }}>
+        <button
+          type="button"
+          onClick={() => setLanguage((current) => (current === "es" ? "en" : "es"))}
+          style={{
+            borderRadius: 999,
+            border: "2px solid rgba(255,255,255,0.18)",
+            background: "rgba(16,22,58,0.86)",
+            color: "#F5F5F5",
+            padding: "8px 14px",
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 10px 20px rgba(0,0,0,0.22)",
+          }}
+        >
+          {language === "es" ? "ES / EN" : "EN / ES"}
+        </button>
+      </div>
+
+      {screen === "select" && <CharacterSelectScreen onSelect={handleSelectCharacter} language={language} />}
 
       {screen === "map" && character && (
-        <MapScreen progress={progress} onEnterLevel={handleEnterLevel} character={character} />
+        <MapScreen progress={progress} onEnterLevel={handleEnterLevel} character={character} language={language} />
       )}
 
       {screen === "game" && currentLevelId && (
