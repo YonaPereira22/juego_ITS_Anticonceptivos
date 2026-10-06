@@ -49,7 +49,8 @@ function editorDataPlugin() {
           }
 
           for (const [levelId, level] of Object.entries(levels)) {
-            if (!/^[a-z0-9_-]+$/i.test(levelId) || !Array.isArray(level.walls) || !level.content) {
+            if (!/^[a-z0-9_-]+$/i.test(levelId) || !Array.isArray(level.walls) ||
+              !level.content || typeof level.content !== 'object' || Array.isArray(level.content)) {
               response.statusCode = 400
               response.end(`Invalid editor data for level "${levelId}".`)
               return
@@ -60,6 +61,68 @@ function editorDataPlugin() {
             )) {
               response.statusCode = 400
               response.end(`Invalid wall data for level "${levelId}".`)
+              return
+            }
+
+            const content = level.content
+            for (const key of ['npcs', 'objects', 'removedNpcIds', 'removedObjectIds', 'removedChallengeIds']) {
+              if (content[key] !== undefined && !Array.isArray(content[key])) {
+                response.statusCode = 400
+                response.end(`Invalid "${key}" data for level "${levelId}".`)
+                return
+              }
+            }
+            if ([...(content.removedNpcIds || []), ...(content.removedObjectIds || [])]
+              .some((id) => typeof id !== 'string' || !id)) {
+              response.statusCode = 400
+              response.end(`Invalid removed entity ids for level "${levelId}".`)
+              return
+            }
+            for (const key of ['npcOverrides', 'objectOverrides', 'challengeOverrides']) {
+              if (content[key] !== undefined &&
+                (!content[key] || typeof content[key] !== 'object' || Array.isArray(content[key]))) {
+                response.statusCode = 400
+                response.end(`Invalid "${key}" data for level "${levelId}".`)
+                return
+              }
+            }
+            for (const key of ['npcOverrides', 'objectOverrides']) {
+              if (Object.values(content[key] || {}).some((override) =>
+                !override || typeof override !== 'object' || Array.isArray(override) ||
+                (override.x !== undefined && !Number.isFinite(override.x)) ||
+                (override.y !== undefined && !Number.isFinite(override.y))
+              )) {
+                response.statusCode = 400
+                response.end(`Invalid "${key}" entry for level "${levelId}".`)
+                return
+              }
+            }
+
+            const entities = [...(content.npcs || []), ...(content.objects || [])]
+            if (entities.length > 500 || entities.some((entity) =>
+              !entity || typeof entity.id !== 'string' || !entity.id ||
+              !Number.isFinite(entity.x) || !Number.isFinite(entity.y)
+            )) {
+              response.statusCode = 400
+              response.end(`Invalid entity data for level "${levelId}".`)
+              return
+            }
+
+            const challengeEntries = Object.entries(content.challengeOverrides || {})
+            if (challengeEntries.length > 500 || challengeEntries.some(([, challenge]) =>
+              !challenge || typeof challenge.title !== 'string' || !challenge.title.trim() ||
+              !Array.isArray(challenge.questions) || challenge.questions.length < 1 ||
+              challenge.questions.length > 100 || challenge.questions.some((question) =>
+                !question || typeof question.text !== 'string' || !question.text.trim() ||
+                typeof question.explanation !== 'string' || !question.explanation.trim() ||
+                !Array.isArray(question.options) || question.options.length < 2 ||
+                question.options.length > 10 || question.options.some((option) => typeof option !== 'string' || !option.trim()) ||
+                !Number.isInteger(question.correctIndex) ||
+                question.correctIndex < 0 || question.correctIndex >= question.options.length
+              )
+            )) {
+              response.statusCode = 400
+              response.end(`Invalid challenge data for level "${levelId}".`)
               return
             }
           }

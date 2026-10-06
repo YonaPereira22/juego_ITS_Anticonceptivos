@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import projectEditorData from "./editorData.json";
 
 const publicAsset = (path) => `${import.meta.env.BASE_URL}${path}`;
 
@@ -100,6 +101,20 @@ const TRUEFALSE_DATA = [
 ];
 
 const MC_QUESTIONS = [
+  {
+    id: "mc_teacher_clues",
+    npc: "Seño Laura",
+    text: "To check a poster about teachers and help Prof. Mateo, what information should you verify?",
+    options: [
+      "What teachers do and where they work, using a reliable source",
+      "Only the poster's colors and pictures",
+      "Any information, without checking it",
+      "Whether the poster is the longest one",
+    ],
+    correctIndex: 0,
+    explanation:
+      "Teachers guide students and plan learning activities. Checking reliable information helps Mateo identify accurate posters.",
+  },
   {
     id: "mc1",
     npc: "Male",
@@ -620,10 +635,23 @@ function buildLevels() {
         emoji: "👩🏽‍🏫",
         color: "#FFD166",
         dialogue: [
-          "Llegaste justo a tiempo. En el liceo aparecieron mensajes con información mezclada: algunos ayudan y otros pueden confundir.",
-          "Tu misión es recorrer cada espacio, hablar con quienes encuentres y revisar los cinco carteles antes de sacar conclusiones.",
-          "Cuando tengas las ideas claras, vení a conversar con Cami en la entrada. Recién ahí vas a poder entregar la misión y seguir la ruta.",
+          "¡Necesito tu ayuda! En el liceo aparecieron cinco carteles sobre distintas profesiones, pero algunos podrían tener información falsa.",
+          "Recorré las aulas y revisá cada cartel: fijate qué hace cada profesional y dónde trabaja. Si algo no coincide, marcálo como mito.",
+          "También podés conversar con Seño Laura para aprender sobre la docencia. Cuando termines de revisar los carteles, vení a hablar con Cami para resolver la situación y seguir la ruta.",
         ],
+      },
+      {
+        id: "teacher_guide",
+        x: 650,
+        y: 780,
+        name: "Seño Laura",
+        emoji: "👩🏻‍🏫",
+        color: "#7CE0C6",
+        dialogue: [
+          "Ser docente es mucho más que explicar temas: también preparo actividades, acompaño a mis estudiantes y los ayudo a aprender.",
+          "Para ayudar a Prof. Mateo, revisemos con cuidado qué dice cada cartel sobre las profesiones.",
+        ],
+        challenge: { type: "mc", dataId: "mc_teacher_clues", starIndex: 1 },
       },
       {
         id: "cami_decision",
@@ -964,6 +992,71 @@ function areLevelObjectivesComplete(levelConfig, runtime) {
     : levelConfig.objectivesAreNpcs
     ? required.every((id) => runtime.doneNpcs[id])
     : required.every((id) => runtime.doneObjects[id]);
+}
+
+const EMPTY_EDITOR_CONTENT = {
+  npcs: [],
+  objects: [],
+  npcOverrides: {},
+  objectOverrides: {},
+  removedNpcIds: [],
+  removedObjectIds: [],
+  removedChallengeIds: [],
+  challengeOverrides: {},
+};
+
+function normalizeEditorContent(content = {}) {
+  return {
+    ...EMPTY_EDITOR_CONTENT,
+    ...content,
+    npcs: Array.isArray(content.npcs) ? content.npcs : [],
+    objects: Array.isArray(content.objects) ? content.objects : [],
+    npcOverrides: content.npcOverrides || {},
+    objectOverrides: content.objectOverrides || {},
+    removedNpcIds: Array.isArray(content.removedNpcIds) ? content.removedNpcIds : [],
+    removedObjectIds: Array.isArray(content.removedObjectIds) ? content.removedObjectIds : [],
+    removedChallengeIds: Array.isArray(content.removedChallengeIds) ? content.removedChallengeIds : [],
+    challengeOverrides: content.challengeOverrides || {},
+  };
+}
+
+function challengeQuestionsForNpc(npc) {
+  const challenge = npc.challenge;
+  if (!challenge) return [];
+  if (challenge.type === "editor") return challenge.questions || [];
+
+  if (challenge.type === "truefalse") {
+    const data = TRUEFALSE_DATA.find((item) => item.id === challenge.dataId);
+    return data ? [{
+      text: data.text,
+      options: ["Verdadero", "Falso"],
+      correctIndex: data.answer ? 0 : 1,
+      explanation: data.explanation,
+    }] : [];
+  }
+  if (challenge.type === "mc") {
+    const data = MC_QUESTIONS.find((item) => item.id === challenge.dataId);
+    return data ? [{ text: data.text, options: data.options, correctIndex: data.correctIndex, explanation: data.explanation }] : [];
+  }
+  if (challenge.type === "decision") {
+    const data = SCENARIOS_DATA.find((item) => item.id === challenge.scenarioId);
+    return data ? [{ text: data.text, options: data.options, correctIndex: data.correctIndex, explanation: data.explanation }] : [];
+  }
+  if (challenge.type === "quiz_multi") {
+    return (challenge.dataKey === "ITS_QUIZ" ? ITS_QUIZ : []).map((item) => ({
+      text: item.text,
+      options: item.options,
+      correctIndex: item.correctIndex,
+      explanation: item.explanation,
+    }));
+  }
+  if (challenge.type === "scenarios_multi") {
+    return challenge.scenarioIds
+      .map((id) => SCENARIOS_DATA.find((item) => item.id === id))
+      .filter(Boolean)
+      .map((item) => ({ text: item.text, options: item.options, correctIndex: item.correctIndex, explanation: item.explanation }));
+  }
+  return [];
 }
 
 /* ================================================================
@@ -1813,6 +1906,61 @@ function MultiQuizModal({ questions, onFinish }) {
   );
 }
 
+function EditableChallengeModal({ questions, title, onFinish }) {
+  const [index, setIndex] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+  const question = questions[index];
+
+  if (!question) return null;
+  const continueChallenge = () => {
+    if (index + 1 === questions.length) onFinish();
+    else {
+      setIndex((current) => current + 1);
+      setFeedback(null);
+    }
+  };
+
+  return (
+    <ModalShell title={title || "DESAFÍO"} accent="#C6F135">
+      <p style={{ color: "#C9CFEA", fontFamily: "'Inter', sans-serif" }}>
+        {index + 1} / {questions.length}
+      </p>
+      <p style={{ fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>{question.text}</p>
+      {!feedback ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+          {question.options.map((option, optionIndex) => (
+            <button
+              key={`${index}-${optionIndex}`}
+              onClick={() => setFeedback({
+                correct: optionIndex === question.correctIndex,
+                explanation: question.explanation,
+              })}
+              style={{
+                textAlign: "left",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "2px solid #C6F135",
+                background: "rgba(255,255,255,0.06)",
+                color: "#F5F5F5",
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <FeedbackBlock
+          feedback={feedback}
+          onRetry={() => setFeedback(null)}
+          onClose={continueChallenge}
+        />
+      )}
+    </ModalShell>
+  );
+}
+
 /* ---------- Modal de escenarios de decisión (uno o varios) ---------- */
 function ScenarioModal({ scenarios, onFinish }) {
   const [idx, setIdx] = useState(0);
@@ -2117,26 +2265,23 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   const [levelDone, setLevelDone] = useState(false);
   const [editorMode, setEditorMode] = useState(false);
   const [editorWalls, setEditorWalls] = useState(() => {
-    return [...(levelConfig.collisionWalls || levelConfig.walls)];
+    const savedWalls = projectEditorData.levels?.[levelConfig.id]?.walls;
+    return [...(savedWalls || levelConfig.collisionWalls || levelConfig.walls)];
   });
   const [editorContent, setEditorContent] = useState(() => {
-    return {
-      npcs: [],
-      objects: [],
-      removedNpcIds: [],
-      removedObjectIds: [],
-      exit: { x: 1420, y: 360, w: 95, h: 55, label: "EXIT →" },
-    };
+    return normalizeEditorContent(projectEditorData.levels?.[levelConfig.id]?.content);
   });
   const [projectDataReady, setProjectDataReady] = useState(false);
   const [projectDataError, setProjectDataError] = useState("");
   const [projectSaveStatus, setProjectSaveStatus] = useState("");
   const projectDataRef = useRef({ levels: {} });
   const [entityEditorMode, setEntityEditorMode] = useState(false);
-  const [entityTool, setEntityTool] = useState("npc");
+  const [entityTool, setEntityTool] = useState("select");
   const [entityDraft, setEntityDraft] = useState(null);
   const [entityEditorError, setEntityEditorError] = useState("");
+  const [challengeDraft, setChallengeDraft] = useState(null);
   const toastTimer = useRef(null);
+  const initialGuideDialogShown = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -2156,11 +2301,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         if (cancelled) return;
         projectDataRef.current = data;
         const savedLevel = data.levels[levelConfig.id];
+        setEditorWalls(savedLevel?.walls || levelConfig.collisionWalls || levelConfig.walls);
+        setEditorContent(normalizeEditorContent(savedLevel?.content));
         if (savedLevel) {
-          if (Array.isArray(savedLevel.walls)) setEditorWalls(savedLevel.walls);
-          if (savedLevel.content) {
-            setEditorContent((current) => ({ ...current, ...savedLevel.content }));
-          }
+          setEditorContent(normalizeEditorContent(savedLevel.content));
         }
         setProjectDataError("");
       } catch (error) {
@@ -2178,19 +2322,24 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   }, [levelConfig.id, levelConfig.collisionWalls, levelConfig.walls]);
 
   const editableLevelConfig = useMemo(() => {
-    if (levelConfig.id !== "liceo") return levelConfig;
+    const visibleNpcs = levelConfig.npcs
+      .filter((npc) => !editorContent.removedNpcIds.includes(npc.id))
+      .map((npc) => ({ ...npc, ...(editorContent.npcOverrides[npc.id] || {}) }));
+    const visibleObjects = levelConfig.objects
+      .filter((object) => !editorContent.removedObjectIds.includes(object.id))
+      .map((object) => ({ ...object, ...(editorContent.objectOverrides[object.id] || {}) }));
     const editableNpcs = editorContent.npcs;
     const editableObjects = editorContent.objects;
-    const visibleNpcs = levelConfig.npcs.filter((npc) => !editorContent.removedNpcIds.includes(npc.id));
-    const visibleObjects = levelConfig.objects.filter((object) => !editorContent.removedObjectIds.includes(object.id));
     return {
       ...levelConfig,
       npcs: [...visibleNpcs, ...editableNpcs],
       objects: [...visibleObjects, ...editableObjects],
-      exit: editorContent.exit,
+      exit: editorContent.exit || levelConfig.exit,
       customObjectives: true,
       objectivesRequired: [
-        ...levelConfig.objectivesRequired.filter((id) => !editorContent.removedObjectIds.includes(id)),
+        ...(levelConfig.objectivesRequired || []).filter((id) =>
+          !editorContent.removedObjectIds.includes(id) && !editorContent.removedNpcIds.includes(id)
+        ),
         ...editableNpcs.map((npc) => npc.id),
         ...editableObjects.map((object) => object.id),
       ],
@@ -2198,13 +2347,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   }, [levelConfig, editorContent]);
 
   useEffect(() => {
-    if (levelConfig.id === "liceo") {
-      const guide = editorContent.removedNpcIds.includes("prof_ana")
-        ? null
-        : levelConfig.npcs.find((npc) => npc.id === "prof_ana");
-      if (guide) setModal({ kind: "dialogue", npc: guide, lineIndex: 0 });
-    }
-  }, [levelConfig]);
+    if (levelConfig.id !== "liceo" || !projectDataReady || initialGuideDialogShown.current) return;
+    initialGuideDialogShown.current = true;
+    const guide = editableLevelConfig.npcs.find((npc) => npc.id === "prof_ana");
+    if (guide) setModal({ kind: "dialogue", npc: guide, lineIndex: 0 });
+  }, [levelConfig.id, projectDataReady, editableLevelConfig]);
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -2223,6 +2370,18 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   useEffect(() => {
     const down = (e) => {
       const k = e.key.toLowerCase();
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) return;
+      if (editorMode || entityEditorMode) {
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) {
+          keysRef.current.add(k);
+          e.preventDefault();
+        }
+        return;
+      }
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) {
         keysRef.current.add(k);
         e.preventDefault();
@@ -2241,7 +2400,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nearby, modal, entityEditorMode]);
+  }, [nearby, modal, editorMode, entityEditorMode]);
+
+  useEffect(() => {
+    if (editorMode || entityEditorMode) keysRef.current.clear();
+  }, [editorMode, entityEditorMode]);
 
   const nearbyRef = useRef(null);
   useEffect(() => {
@@ -2294,7 +2457,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
     setEditorContent(nextContent);
   }
 
-  async function persistEditorProject() {
+  async function persistEditorProject(contentToSave = editorContent) {
     if (!projectDataReady || projectDataError) {
       throw new Error(projectDataError || "Todavía se están cargando los datos del proyecto.");
     }
@@ -2304,15 +2467,22 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         ...projectDataRef.current.levels,
         [levelConfig.id]: {
           walls: editorWalls,
-          content: editorContent,
+          content: contentToSave,
         },
       },
     };
-    const response = await fetch("/__job-quest/editor-data", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nextProjectData),
-    });
+    let response;
+    try {
+      response = await fetch("/__job-quest/editor-data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextProjectData),
+      });
+    } catch {
+      throw new Error(
+        "No hay conexión con el servidor que guarda el proyecto. Ejecutá `npm run dev` en la carpeta del proyecto, dejalo abierto y volvé a pulsar Guardar. El cambio sigue en el editor."
+      );
+    }
     if (!response.ok) {
       const detail = await response.text();
       throw new Error(detail || `El servidor respondió ${response.status}.`);
@@ -2327,6 +2497,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       setEntityEditorError("Guardá o cancelá el elemento que estás editando antes de cerrar el lápiz.");
       return;
     }
+    if (editor === "entities" && challengeDraft) {
+      setEntityEditorError("Guardá o cancelá el desafío que estás editando antes de cerrar el lápiz.");
+      return;
+    }
     setProjectSaveStatus("Guardando en el proyecto...");
     setEntityEditorError("");
     try {
@@ -2335,6 +2509,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       if (editor === "entities") {
         setEntityEditorMode(false);
         setEntityDraft(null);
+        setChallengeDraft(null);
       }
     } catch (error) {
       setProjectSaveStatus("");
@@ -2345,8 +2520,35 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   function startEntityPlacement(type) {
     setEntityTool(type);
     setEntityDraft(null);
+    setChallengeDraft(null);
     setEntityEditorError("");
     showToast(type === "exit" ? "Hacé clic sobre el cartel EXIT para ubicar la salida." : "Hacé clic en el mapa para colocar el elemento.");
+  }
+
+  function startEntityEdit(type, item) {
+    setEntityTool("select");
+    setChallengeDraft(null);
+    setEntityDraft({
+      id: item.id,
+      type,
+      original: !item.editorCreated,
+      objectType: item.type,
+      x: item.x,
+      y: item.y,
+      name: type === "npc" ? item.name : "",
+      label: type === "npc" ? "" : item.label || item.name || item.id,
+      emoji: item.emoji || (type === "npc" ? "🧑‍💼" : "📌"),
+      color: item.color,
+      skin: item.skin,
+      hair: item.hair,
+      hairStyle: item.hairStyle,
+      content: type === "npc"
+        ? (item.dialogue || []).join("\n")
+        : item.type === "mito"
+          ? MYTHS_DATA.find((myth) => myth.id === item.dataId)?.text || ""
+          : item.text || "",
+    });
+    setEntityEditorError("");
   }
 
   function handleEntityPlacement(position) {
@@ -2372,17 +2574,21 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       label: "",
       emoji: entityTool === "npc" ? "🧑‍💼" : "📌",
       content: "",
+      original: false,
+      objectType: "pista",
     });
     setEntityEditorError("");
   }
 
-  function saveEntityDraft(event) {
+  async function saveEntityDraft(event) {
     event.preventDefault();
     if (!entityDraft) return;
     const content = entityDraft.content.trim();
     const title = (entityDraft.type === "npc" ? entityDraft.name : entityDraft.label).trim();
-    if (!title || !content) {
-      setEntityEditorError("Completá el nombre o título y el contenido antes de guardar.");
+    const needsContent = entityDraft.type === "npc" ||
+      entityDraft.objectType === "pista" || entityDraft.objectType === "mito";
+    if (!title || (needsContent && !content)) {
+      setEntityEditorError("Completá el nombre o título y el contenido requerido antes de guardar.");
       return;
     }
     const entry = entityDraft.type === "npc"
@@ -2392,51 +2598,96 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           y: entityDraft.y,
           name: title,
           emoji: entityDraft.emoji || "🧑‍💼",
-          color: "#FFB347",
+          color: entityDraft.color || "#FFB347",
+          ...(entityDraft.skin ? { skin: entityDraft.skin } : {}),
+          ...(entityDraft.hair ? { hair: entityDraft.hair } : {}),
+          ...(entityDraft.hairStyle ? { hairStyle: entityDraft.hairStyle } : {}),
           dialogue: content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
-          editorCreated: true,
+          editorCreated: !entityDraft.original,
         }
       : {
           id: entityDraft.id,
           x: entityDraft.x,
           y: entityDraft.y,
-          type: "pista",
+          type: entityDraft.objectType || "pista",
           label: title,
           emoji: entityDraft.emoji || "📌",
           text: content,
-          editorCreated: true,
+          editorCreated: !entityDraft.original,
         };
     const key = entityDraft.type === "npc" ? "npcs" : "objects";
-    const entries = editorContent[key];
-    const exists = entries.some((item) => item.id === entry.id);
     try {
-      saveEditorContent({
-        ...editorContent,
-        [key]: exists
-          ? entries.map((item) => item.id === entry.id ? entry : item)
-          : [...entries, entry],
-      });
+      let nextContent = editorContent;
+      if (entityDraft.original && entityDraft.type === "npc") {
+        nextContent = {
+          ...editorContent,
+          npcOverrides: {
+            ...editorContent.npcOverrides,
+            [entry.id]: {
+              ...editorContent.npcOverrides[entry.id],
+              ...entry,
+            },
+          },
+        };
+      } else if (entityDraft.original) {
+        const original = levelConfig.objects.find((item) => item.id === entry.id);
+        const objectOverride = {
+          ...editorContent.objectOverrides[entry.id],
+          x: entry.x,
+          y: entry.y,
+          label: entry.label,
+          emoji: entry.emoji,
+          ...(original?.type === "pista" ? { text: entry.text } : {}),
+        };
+        const updatedContent = {
+          ...editorContent,
+          objectOverrides: {
+            ...editorContent.objectOverrides,
+            [entry.id]: objectOverride,
+          },
+        };
+        if (original?.type === "mito" && original.dataId) {
+          const myth = MYTHS_DATA.find((item) => item.id === original.dataId);
+          if (myth) {
+            const challengeKey = `myth:${original.dataId}`;
+            const previous = editorContent.challengeOverrides[challengeKey];
+            const question = previous?.questions?.[0] || {
+              text: myth.text,
+              options: ["Mito", "Realidad"],
+              correctIndex: myth.answer === "mito" ? 0 : 1,
+              explanation: myth.explanation,
+            };
+            updatedContent.challengeOverrides = {
+              ...editorContent.challengeOverrides,
+              [challengeKey]: {
+                ...(previous || {}),
+                questions: [{ ...question, text: entry.text }],
+              },
+            };
+          }
+        }
+        nextContent = updatedContent;
+      } else {
+        const entries = editorContent[key];
+        const exists = entries.some((item) => item.id === entry.id);
+        nextContent = {
+          ...editorContent,
+          [key]: exists
+            ? entries.map((item) => item.id === entry.id ? { ...item, ...entry, challenge: item.challenge } : item)
+            : [...entries, entry],
+        };
+      }
+      saveEditorContent(nextContent);
+      setEntityEditorError("");
+      setProjectSaveStatus("Guardando cambios en src/editorData.json...");
+      await persistEditorProject(nextContent);
       setEntityDraft(null);
       setEntityEditorError("");
-      showToast("Elemento listo. Cerrá el lápiz para guardarlo en el proyecto.");
+      showToast("Cambio guardado en src/editorData.json.");
     } catch (error) {
+      setProjectSaveStatus("");
       setEntityEditorError(`No se pudo guardar el elemento: ${error.message}`);
     }
-  }
-
-  function editEntity(type, item) {
-    setEntityTool(type);
-    setEntityDraft({
-      id: item.id,
-      type,
-      x: item.x,
-      y: item.y,
-      name: type === "npc" ? item.name : "",
-      label: type === "pista" ? item.label : "",
-      emoji: item.emoji,
-      content: type === "npc" ? (item.dialogue || []).join("\n") : item.text,
-    });
-    setEntityEditorError("");
   }
 
   function removeEntity(type, id) {
@@ -2445,12 +2696,35 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
     const isCustomItem = customItems.some((item) => item.id === id);
     const removedKey = type === "npc" ? "removedNpcIds" : "removedObjectIds";
     try {
+      const originalObject = type === "pista" ? levelConfig.objects.find((item) => item.id === id) : null;
+      const challengeKeysToRemove = type === "npc"
+        ? [`npc:${id}`]
+        : originalObject?.type === "mito"
+          ? [`myth:${originalObject.dataId}`]
+          : originalObject?.type === "fragment"
+            ? [`mission:${originalObject.missionId}`]
+            : [];
+      const challengeOverrides = Object.fromEntries(
+        Object.entries(editorContent.challengeOverrides).filter(([challengeKey]) =>
+          !challengeKeysToRemove.includes(challengeKey)
+        )
+      );
       saveEditorContent({
         ...editorContent,
         [key]: customItems.filter((item) => item.id !== id),
         [removedKey]: isCustomItem
           ? editorContent[removedKey]
-          : [...editorContent[removedKey], id],
+          : [...new Set([...editorContent[removedKey], id])],
+        npcOverrides: type === "npc"
+          ? Object.fromEntries(Object.entries(editorContent.npcOverrides).filter(([itemId]) => itemId !== id))
+          : editorContent.npcOverrides,
+        objectOverrides: type === "pista"
+          ? Object.fromEntries(Object.entries(editorContent.objectOverrides).filter(([itemId]) => itemId !== id))
+          : editorContent.objectOverrides,
+        challengeOverrides,
+        removedChallengeIds: type === "pista" && challengeKeysToRemove.length
+          ? [...new Set([...editorContent.removedChallengeIds, ...challengeKeysToRemove])]
+          : editorContent.removedChallengeIds,
       });
       if (entityDraft?.id === id) setEntityDraft(null);
       setEntityEditorError("");
@@ -2459,10 +2733,237 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
     }
   }
 
+  function updateEntityPosition(type, id, x, y) {
+    const key = type === "npc" ? "npcs" : "objects";
+    if (editorContent[key].some((item) => item.id === id)) {
+      saveEditorContent({
+        ...editorContent,
+        [key]: editorContent[key].map((item) => item.id === id ? { ...item, x, y } : item),
+      });
+      return;
+    }
+    const overridesKey = type === "npc" ? "npcOverrides" : "objectOverrides";
+    saveEditorContent({
+      ...editorContent,
+      [overridesKey]: {
+        ...editorContent[overridesKey],
+        [id]: { ...editorContent[overridesKey][id], x, y },
+      },
+    });
+  }
+
+  function challengeQuestionsForObject(item) {
+    if (item.type === "mito") {
+      const myth = MYTHS_DATA.find((entry) => entry.id === item.dataId);
+      return myth ? [{
+        text: myth.text,
+        options: ["Mito", "Realidad"],
+        correctIndex: myth.answer === "mito" ? 0 : 1,
+        explanation: myth.explanation,
+      }] : [];
+    }
+    if (item.type === "fragment") {
+      const mission = MISSIONS_DATA.find((entry) => entry.id === item.missionId);
+      const challenge = mission?.challenge;
+      if (!challenge) return [];
+      if (challenge.type === "mito") {
+        return [{
+          text: challenge.text,
+          options: ["Mito", "Realidad"],
+          correctIndex: challenge.answer === "mito" ? 0 : 1,
+          explanation: challenge.explanation,
+        }];
+      }
+      if (challenge.type === "truefalse") {
+        return [{
+          text: challenge.text,
+          options: ["Verdadero", "Falso"],
+          correctIndex: challenge.answer ? 0 : 1,
+          explanation: challenge.explanation,
+        }];
+      }
+      return [{
+        text: challenge.text,
+        options: challenge.options,
+        correctIndex: challenge.correctIndex,
+        explanation: challenge.explanation,
+      }];
+    }
+    return [];
+  }
+
+  function openChallengeEditor(kind, item) {
+    setEntityDraft(null);
+    const challengeKey = kind === "npc"
+      ? `npc:${item.id}`
+      : item.type === "mito"
+        ? `myth:${item.dataId}`
+        : `mission:${item.missionId}`;
+    const saved = editorContent.challengeOverrides[challengeKey];
+    const questions = saved?.questions ||
+      (kind === "npc" ? challengeQuestionsForNpc(item) : challengeQuestionsForObject(item));
+    setChallengeDraft({
+      challengeKey,
+      kind,
+      entityId: item.id,
+      assignedNpcId: kind === "npc" ? item.id : "",
+      title: kind === "npc" ? `Desafío de ${item.name}` : item.label || "Desafío",
+      questions: questions.length
+        ? questions.map((question) => ({ ...question, options: [...question.options] }))
+        : [{ text: "", options: ["", ""], correctIndex: 0, explanation: "" }],
+    });
+  }
+
+  function updateChallengeQuestion(index, changes) {
+    setChallengeDraft((draft) => ({
+      ...draft,
+      questions: draft.questions.map((question, questionIndex) =>
+        questionIndex === index ? { ...question, ...changes } : question
+      ),
+    }));
+  }
+
+  function saveChallengeDraft(event) {
+    event.preventDefault();
+    if (!challengeDraft) return;
+    const questions = challengeDraft.questions.map((question) => ({
+      ...question,
+      text: question.text.trim(),
+      options: question.options.map((option) => option.trim()),
+      explanation: question.explanation.trim(),
+    }));
+    if (!challengeDraft.title.trim() || questions.length > 100 || questions.some((question) =>
+      !question.text || !question.explanation || question.options.length < 2 ||
+      question.options.length > 10 || question.options.some((option) => !option) ||
+      !Number.isInteger(question.correctIndex) ||
+      question.correctIndex < 0 || question.correctIndex >= question.options.length
+    )) {
+      setEntityEditorError("Completá cada consigna, sus opciones, una respuesta correcta y la explicación.");
+      return;
+    }
+    if (challengeDraft.kind === "npc" && !challengeDraft.assignedNpcId) {
+      setEntityEditorError("Elegí el NPC al que se le asignará este desafío.");
+      return;
+    }
+    const nextOverrides = { ...editorContent.challengeOverrides };
+    if (challengeDraft.assignedNpcId) {
+      const npc = editableLevelConfig.npcs.find((entry) => entry.id === challengeDraft.assignedNpcId);
+      if (!npc) {
+        setEntityEditorError("El NPC seleccionado ya no existe en este nivel.");
+        return;
+      }
+      const key = `npc:${npc.id}`;
+      const sourceNpc = challengeDraft.kind === "npc"
+        ? editableLevelConfig.npcs.find((entry) => entry.id === challengeDraft.entityId)
+        : null;
+      if (sourceNpc && sourceNpc.id !== npc.id) {
+        delete nextOverrides[`npc:${sourceNpc.id}`];
+      }
+      nextOverrides[key] = { id: key, title: challengeDraft.title.trim(), questions };
+      const updatedContent = {
+        ...editorContent,
+        challengeOverrides: nextOverrides,
+      };
+      if (challengeDraft.kind !== "npc" && challengeDraft.challengeKey !== key) {
+        updatedContent.removedChallengeIds = [
+          ...new Set([...editorContent.removedChallengeIds, challengeDraft.challengeKey]),
+        ];
+      }
+      const npcOverrides = { ...editorContent.npcOverrides };
+      if (!npc.editorCreated) {
+        npcOverrides[npc.id] = {
+          ...npcOverrides[npc.id],
+          challenge: {
+            type: "editor",
+            challengeId: key,
+            starIndex: npc.challenge?.starIndex || 1,
+            ...(npc.challenge?.requires ? { requires: npc.challenge.requires } : {}),
+          },
+        };
+      }
+      if (sourceNpc && sourceNpc.id !== npc.id && !sourceNpc.editorCreated) {
+        npcOverrides[sourceNpc.id] = { ...npcOverrides[sourceNpc.id], challenge: null };
+      }
+      updatedContent.npcOverrides = npcOverrides;
+      updatedContent.npcs = editorContent.npcs.map((entry) => {
+        if (entry.id === npc.id) {
+          return {
+            ...entry,
+            challenge: {
+              type: "editor",
+              challengeId: key,
+              starIndex: npc.challenge?.starIndex || 1,
+              ...(npc.challenge?.requires ? { requires: npc.challenge.requires } : {}),
+            },
+          };
+        }
+        if (sourceNpc && sourceNpc.id !== npc.id && entry.id === sourceNpc.id) {
+          return { ...entry, challenge: null };
+        }
+        return entry;
+      });
+      saveEditorContent(updatedContent);
+    } else {
+      nextOverrides[challengeDraft.challengeKey] = {
+        id: challengeDraft.challengeKey,
+        title: challengeDraft.title.trim(),
+        questions,
+      };
+      saveEditorContent({ ...editorContent, challengeOverrides: nextOverrides });
+    }
+    setChallengeDraft(null);
+    setEntityEditorError("");
+    showToast("Desafío listo. Cerrá el lápiz para guardarlo en el proyecto.");
+  }
+
+  function deleteNpcChallenge(npc) {
+    const key = `npc:${npc.id}`;
+    const challengeOverrides = { ...editorContent.challengeOverrides };
+    delete challengeOverrides[key];
+    if (npc.editorCreated) {
+      saveEditorContent({
+        ...editorContent,
+        challengeOverrides,
+        npcs: editorContent.npcs.map((entry) =>
+          entry.id === npc.id ? { ...entry, challenge: null } : entry
+        ),
+      });
+    } else {
+      saveEditorContent({
+        ...editorContent,
+        challengeOverrides,
+        npcOverrides: {
+          ...editorContent.npcOverrides,
+          [npc.id]: { ...editorContent.npcOverrides[npc.id], challenge: null },
+        },
+      });
+    }
+    setChallengeDraft(null);
+  }
+
+  function deleteCurrentChallenge() {
+    if (!challengeDraft) return;
+    if (challengeDraft.assignedNpcId) {
+      const npc = editableLevelConfig.npcs.find((entry) => entry.id === challengeDraft.assignedNpcId);
+      if (npc) deleteNpcChallenge(npc);
+      return;
+    }
+    const challengeOverrides = { ...editorContent.challengeOverrides };
+    delete challengeOverrides[challengeDraft.challengeKey];
+    saveEditorContent({
+      ...editorContent,
+      challengeOverrides,
+      removedChallengeIds: [
+        ...new Set([...editorContent.removedChallengeIds, challengeDraft.challengeKey]),
+      ],
+    });
+    setChallengeDraft(null);
+  }
+
   function removeEntityAt(position) {
     const candidates = [
-      ...editorContent.npcs.map((item) => ({ type: "npc", item })),
-      ...editorContent.objects.map((item) => ({ type: "pista", item })),
+      ...editableLevelConfig.npcs.map((item) => ({ type: "npc", item })),
+      ...editableLevelConfig.objects.map((item) => ({ type: "pista", item })),
     ];
     const nearest = candidates
       .map((candidate) => ({
@@ -2494,6 +2995,24 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
 
     switch (obj.type) {
       case "mito": {
+        const challengeKey = `myth:${obj.dataId}`;
+        if (editorContent.removedChallengeIds.includes(challengeKey)) {
+          runtimeRef.current.doneObjects[obj.id] = true;
+          showToast("Cartel revisado; no tiene un desafío asignado.");
+          forceTick((t) => t + 1);
+          break;
+        }
+        const challenge = editorContent.challengeOverrides[challengeKey];
+        if (challenge?.questions?.length) {
+          setModal({
+            kind: "editable_challenge",
+            obj,
+            title: challenge.title,
+            questions: challenge.questions,
+            target: "object",
+          });
+          break;
+        }
         const data = MYTHS_DATA.find((m) => m.id === obj.dataId);
         setModal({ kind: "mito", obj, data, feedback: null });
         break;
@@ -2529,6 +3048,26 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       }
       case "fragment": {
         const mission = MISSIONS_DATA.find((m) => m.id === obj.missionId);
+        const challengeKey = `mission:${obj.missionId}`;
+        if (editorContent.removedChallengeIds.includes(challengeKey)) {
+          runtimeRef.current.doneObjects[obj.id] = true;
+          collectInventoryItem({ emoji: mission.emoji, label: mission.label, text: "Fragmento conseguido." });
+          showToast(`${mission.emoji} Fragmento "${mission.label}" conseguido`);
+          playSound("pickup");
+          forceTick((t) => t + 1);
+          break;
+        }
+        const challenge = editorContent.challengeOverrides[challengeKey];
+        if (challenge?.questions?.length) {
+          setModal({
+            kind: "editable_fragment",
+            obj,
+            mission,
+            title: challenge.title,
+            questions: challenge.questions,
+          });
+          break;
+        }
         setModal({ kind: "fragment", obj, mission });
         break;
       }
@@ -2539,18 +3078,35 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
 
   function openChallengeForNpc(npc) {
     const ch = npc.challenge;
-    if (ch.type === "truefalse") {
+    const savedChallenge = editorContent.challengeOverrides[`npc:${npc.id}`];
+    if (ch?.requires?.some((id) => !runtimeRef.current.doneObjects[id])) {
+      showToast("Primero revisá todos los elementos requeridos para este desafío.");
+      return;
+    }
+    const savedQuestions = savedChallenge?.questions;
+    const questions = savedQuestions || (ch?.type === "editor" ? ch.questions : null);
+    if (questions?.length) {
+      setModal({
+        kind: "editable_challenge",
+        npc,
+        title: savedChallenge?.title || `DESAFÍO · ${npc.name}`,
+        questions,
+        target: "npc",
+      });
+      return;
+    }
+    if (ch?.type === "truefalse") {
       const data = TRUEFALSE_DATA.find((d) => d.id === ch.dataId);
       setModal({ kind: "truefalse", npc, data, feedback: null });
-    } else if (ch.type === "mc") {
+    } else if (ch?.type === "mc") {
       const data = MC_QUESTIONS.find((d) => d.id === ch.dataId);
       setModal({ kind: "mc", npc, data, feedback: null });
-    } else if (ch.type === "decision") {
+    } else if (ch?.type === "decision") {
       const scenario = SCENARIOS_DATA.find((s) => s.id === ch.scenarioId);
       setModal({ kind: "scenario_single", npc, scenario, ch });
-    } else if (ch.type === "quiz_multi") {
+    } else if (ch?.type === "quiz_multi") {
       setModal({ kind: "quiz_multi", npc, ch });
-    } else if (ch.type === "scenarios_multi") {
+    } else if (ch?.type === "scenarios_multi") {
       setModal({ kind: "scenarios_multi", npc, ch });
     }
   }
@@ -2608,7 +3164,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         </BigButton>
         {editorMode && (
           <PixelPanel style={{ marginTop: 8, padding: 10, width: 235, borderColor: "#FFB347", fontSize: 11 }}>
-            Arrastrá para dibujar un muro. Clic derecho para borrarlo.
+            Arrastrá para dibujar un muro. Clic derecho para borrarlo; usá WASD para recorrer el mapa sin mover al personaje.
             <br />
             Al cerrar, los muros quedan guardados en src/editorData.json dentro del proyecto.
             {projectDataError && <p role="alert" style={{ color: "#FF8FB1" }}>{projectDataError}</p>}
@@ -2622,8 +3178,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           </PixelPanel>
         )}
       </div>
-      {levelConfig.id === "liceo" && (
-        <div style={{ position: "absolute", top: 48, right: 12, zIndex: 50 }}>
+      <div style={{ position: "absolute", top: 48, right: 12, zIndex: 50 }}>
           <BigButton
             onClick={() => {
               if (entityEditorMode) {
@@ -2641,10 +3196,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
             {!projectDataReady ? "Cargando editor..." : entityEditorMode ? "Guardar y cerrar lápiz" : "✏ NPC y pistas"}
           </BigButton>
           {entityEditorMode && (
-            <PixelPanel style={{ marginTop: 8, padding: 12, width: 270, maxHeight: 440, overflowY: "auto", borderColor: "#C6F135", fontSize: 12 }}>
-              <strong>Colocar en el mapa</strong>
+            <PixelPanel style={{ marginTop: 8, padding: 12, width: 300, maxHeight: 560, overflowY: "auto", borderColor: "#C6F135", fontSize: 12 }}>
+              <strong>Editar escenario</strong>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                 {[
+                  ["select", "↖ Mover/editar"],
                   ["npc", "👤 NPC"],
                   ["pista", "📌 Pista"],
                   ["exit", "🚪 Salida"],
@@ -2668,11 +3224,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                 ))}
               </div>
               <p style={{ color: "#C9CFEA", margin: "8px 0" }}>
-                Elegí una herramienta y hacé clic en el mapa. Usá WASD para moverte por el escenario. NPC y pista permiten escribir su contenido.
+                Elegí “Mover/editar” y arrastrá elementos existentes. Un clic sobre ellos permite editar; usá WASD para recorrer el mapa sin mover al personaje.
               </p>
               {entityDraft && (
                 <form onSubmit={saveEntityDraft} style={{ display: "grid", gap: 7, marginTop: 10 }}>
-                  <strong>{entityDraft.id.startsWith("editor-") && !editorContent.npcs.concat(editorContent.objects).some((item) => item.id === entityDraft.id) ? "Nuevo elemento" : "Editar elemento"}</strong>
+                  <strong>{entityDraft.original ? "Editar elemento existente" : "Nuevo elemento"}</strong>
                   <label>
                     {entityDraft.type === "npc" ? "Nombre" : "Título"}
                     <input
@@ -2696,19 +3252,143 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                     />
                   </label>
                   <label>
-                    {entityDraft.type === "npc" ? "Diálogo (una línea por mensaje)" : "Contenido de la pista"}
+                    {entityDraft.type === "npc" ? "Diálogo (una línea por mensaje)" : "Texto del cartel o pista"}
                     <textarea
                       value={entityDraft.content}
                       onChange={(event) => setEntityDraft({ ...entityDraft, content: event.target.value })}
                       rows={4}
                       maxLength={600}
-                      required
+                      required={entityDraft.type === "npc" || entityDraft.objectType === "pista" || entityDraft.objectType === "mito"}
                       style={{ ...editorInputStyle, resize: "vertical" }}
                     />
                   </label>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button type="submit" style={editorActionButtonStyle}>Guardar</button>
                     <button type="button" onClick={() => setEntityDraft(null)} style={editorActionButtonStyle}>Cancelar</button>
+                  </div>
+                </form>
+              )}
+              {challengeDraft && (
+                <form onSubmit={saveChallengeDraft} style={{ display: "grid", gap: 8, marginTop: 12, borderTop: "1px solid #3A4270", paddingTop: 10 }}>
+                  <strong>Editar / crear desafío</strong>
+                  <label>
+                    Título
+                    <input
+                      value={challengeDraft.title}
+                      onChange={(event) => setChallengeDraft({ ...challengeDraft, title: event.target.value })}
+                      maxLength={60}
+                      required
+                      style={editorInputStyle}
+                    />
+                  </label>
+                  <label>
+                    {challengeDraft.kind === "npc" ? "Asignar desafío a NPC" : "NPC (opcional)"}
+                    <select
+                      value={challengeDraft.assignedNpcId}
+                      onChange={(event) => setChallengeDraft({ ...challengeDraft, assignedNpcId: event.target.value })}
+                      style={editorInputStyle}
+                    >
+                      {challengeDraft.kind !== "npc" && (
+                        <option value="">Dejar el desafío en el cartel / fragmento</option>
+                      )}
+                      {editableLevelConfig.npcs.map((npc) => (
+                        <option key={npc.id} value={npc.id}>{npc.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {challengeDraft.questions.map((question, questionIndex) => (
+                    <div key={questionIndex} style={{ display: "grid", gap: 6, padding: 8, border: "1px solid #3A4270", borderRadius: 6 }}>
+                      <strong>Pregunta {questionIndex + 1}</strong>
+                      <textarea
+                        aria-label={`Consigna ${questionIndex + 1}`}
+                        value={question.text}
+                        onChange={(event) => updateChallengeQuestion(questionIndex, { text: event.target.value })}
+                        maxLength={600}
+                        rows={2}
+                        required
+                        placeholder="Consigna"
+                        style={{ ...editorInputStyle, resize: "vertical" }}
+                      />
+                      {question.options.map((option, optionIndex) => (
+                        <div key={optionIndex} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                          <input
+                            type="radio"
+                            name={`correct-${questionIndex}`}
+                            checked={question.correctIndex === optionIndex}
+                            onChange={() => updateChallengeQuestion(questionIndex, { correctIndex: optionIndex })}
+                            aria-label={`Marcar opción ${optionIndex + 1} como correcta`}
+                          />
+                          <input
+                            value={option}
+                            onChange={(event) => updateChallengeQuestion(questionIndex, {
+                              options: question.options.map((value, index) => index === optionIndex ? event.target.value : value),
+                            })}
+                            maxLength={240}
+                            required
+                            aria-label={`Opción ${optionIndex + 1}`}
+                            style={{ ...editorInputStyle, flex: 1 }}
+                          />
+                          {question.options.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => updateChallengeQuestion(questionIndex, {
+                                options: question.options.filter((_, index) => index !== optionIndex),
+                                correctIndex: Math.min(question.correctIndex, question.options.length - 2),
+                              })}
+                              style={editorActionButtonStyle}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {question.options.length < 10 && <button
+                        type="button"
+                        onClick={() => updateChallengeQuestion(questionIndex, { options: [...question.options, ""] })}
+                        style={editorActionButtonStyle}
+                      >
+                        Agregar opción
+                      </button>}
+                      <textarea
+                        aria-label={`Explicación ${questionIndex + 1}`}
+                        value={question.explanation}
+                        onChange={(event) => updateChallengeQuestion(questionIndex, { explanation: event.target.value })}
+                        maxLength={600}
+                        rows={2}
+                        required
+                        placeholder="Explicación"
+                        style={{ ...editorInputStyle, resize: "vertical" }}
+                      />
+                      {challengeDraft.questions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setChallengeDraft({
+                            ...challengeDraft,
+                            questions: challengeDraft.questions.filter((_, index) => index !== questionIndex),
+                          })}
+                          style={editorActionButtonStyle}
+                        >
+                          Eliminar pregunta
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {challengeDraft.questions.length < 100 && <button
+                    type="button"
+                    onClick={() => setChallengeDraft({
+                      ...challengeDraft,
+                      questions: [...challengeDraft.questions, { text: "", options: ["", ""], correctIndex: 0, explanation: "" }],
+                    })}
+                    style={editorActionButtonStyle}
+                  >
+                    Agregar pregunta
+                  </button>}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="submit" style={editorActionButtonStyle}>Guardar desafío</button>
+                    <button type="button" onClick={deleteCurrentChallenge} style={editorActionButtonStyle}>
+                      Eliminar desafío
+                    </button>
+                    <button type="button" onClick={() => setChallengeDraft(null)} style={editorActionButtonStyle}>Cancelar</button>
                   </div>
                 </form>
               )}
@@ -2722,14 +3402,19 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
               ].map(({ item, type }) => (
                 <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.emoji} {type === "npc" ? item.name : item.label}</span>
-                  {item.editorCreated && <button type="button" onClick={() => editEntity(type, item)} style={editorActionButtonStyle}>Editar</button>}
+                  <button type="button" onClick={() => startEntityEdit(type, item)} style={editorActionButtonStyle}>Editar</button>
+                  {type === "npc" && (
+                    <button type="button" onClick={() => openChallengeEditor(type, item)} style={editorActionButtonStyle}>Desafío</button>
+                  )}
+                  {type === "pista" && ["mito", "fragment"].includes(item.type) && (
+                    <button type="button" onClick={() => openChallengeEditor(type, item)} style={editorActionButtonStyle}>Desafío</button>
+                  )}
                   <button type="button" onClick={() => removeEntity(type, item.id)} style={editorActionButtonStyle}>×</button>
                 </div>
               ))}
             </PixelPanel>
           )}
         </div>
-      )}
       {(projectDataError || entityEditorError || projectSaveStatus) && (
         <PixelPanel
           role={projectDataError || entityEditorError ? "alert" : "status"}
@@ -2766,6 +3451,8 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         entityTool={entityTool}
         onEntityPlace={handleEntityPlacement}
         onEntityRemoveAt={removeEntityAt}
+        onEntityMove={updateEntityPosition}
+        onEntityEdit={startEntityEdit}
       />
       <InteractPrompt label={nearby ? nearby.label : null} />
       <Toast text={toast} />
@@ -2789,6 +3476,9 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
               if (modal.npc.challenge) {
                 openChallengeForNpc(modal.npc);
               } else {
+                runtimeRef.current.doneNpcs[modal.npc.id] = true;
+                runtimeRef.current.doneObjects[modal.npc.id] = true;
+                runtimeRef.current.doneObjects[`${modal.npc.id}_done`] = true;
                 closeModal();
               }
             } else {
@@ -2825,6 +3515,27 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           onAnswer={(i) => resolveMitoOrTF(i === modal.data.correctIndex)}
           onRetry={() => setModal((m) => ({ ...m, feedback: null }))}
           onClose={() => finalizeSimpleObjective(null, modal.npc)}
+        />
+      )}
+
+      {modal && modal.kind === "editable_challenge" && (
+        <EditableChallengeModal
+          questions={modal.questions}
+          title={modal.title || (modal.npc?.name ? `DESAFÍO · ${modal.npc.name}` : "MITO O REALIDAD")}
+          onFinish={() => {
+            if (modal.npc) {
+              runtimeRef.current.doneNpcs[modal.npc.id] = true;
+              runtimeRef.current.doneObjects[modal.npc.id] = true;
+              runtimeRef.current.doneObjects[`${modal.npc.id}_done`] = true;
+              if (modal.npc.challenge?.starIndex) markStar(modal.npc.challenge.starIndex);
+            }
+            if (modal.obj) {
+              runtimeRef.current.doneObjects[modal.obj.id] = true;
+              if (modal.obj.starIndex) markStar(modal.obj.starIndex);
+            }
+            playSound("correct");
+            closeModal();
+          }}
         />
       )}
 
@@ -2894,6 +3605,24 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         />
       )}
 
+      {modal && modal.kind === "editable_fragment" && (
+        <EditableChallengeModal
+          questions={modal.questions}
+          title={modal.title || modal.mission?.label || "FRAGMENTO"}
+          onFinish={() => {
+            runtimeRef.current.doneObjects[modal.obj.id] = true;
+            collectInventoryItem({
+              emoji: modal.mission.emoji,
+              label: modal.mission.label,
+              text: "Fragmento conseguido.",
+            });
+            showToast(`${modal.mission.emoji} Fragmento "${modal.mission.label}" conseguido`);
+            playSound("pickup");
+            closeModal();
+          }}
+        />
+      )}
+
       {levelDone && (
         <LevelDoneOverlay
           levelConfig={editableLevelConfig}
@@ -2935,10 +3664,13 @@ function GameCanvas({
   entityTool,
   onEntityPlace,
   onEntityRemoveAt,
+  onEntityMove,
+  onEntityEdit,
 }) {
   const lastNearbyId = useRef(null);
   const stepSoundTimer = useRef(0);
   const editorDragRef = useRef(null);
+  const entityDragRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -3147,7 +3879,17 @@ function GameCanvas({
     function loop(time) {
       const dt = Math.min((time - lastTime) / 1000, 0.05);
       lastTime = time;
-      if (!pausedRef.current && !modalOpenRef.current && !editorMode) {
+      if (editorMode || entityEditorMode) {
+        const keys = keysRef.current;
+        const camera = cameraRef.current;
+        const panSpeed = 300 * dt;
+        if (keys.has("arrowup") || keys.has("w")) camera.y -= panSpeed;
+        if (keys.has("arrowdown") || keys.has("s")) camera.y += panSpeed;
+        if (keys.has("arrowleft") || keys.has("a")) camera.x -= panSpeed;
+        if (keys.has("arrowright") || keys.has("d")) camera.x += panSpeed;
+        camera.x = Math.max(0, Math.min(levelConfig.width - VIEW_W, camera.x));
+        camera.y = Math.max(0, Math.min(levelConfig.height - VIEW_H, camera.y));
+      } else if (!pausedRef.current && !modalOpenRef.current) {
         update(dt);
       }
       draw();
@@ -3180,8 +3922,33 @@ function GameCanvas({
         const worldX = x * scaleX + cameraRef.current.x;
         const worldY = y * scaleY + cameraRef.current.y;
         if (entityEditorMode) {
-          if (entityTool === "borrar") onEntityRemoveAt({ x: worldX, y: worldY });
-          else onEntityPlace({ x: worldX, y: worldY });
+          if (entityTool === "borrar") {
+            onEntityRemoveAt({ x: worldX, y: worldY });
+            return;
+          }
+          if (entityTool === "npc" || entityTool === "pista" || entityTool === "exit") {
+            onEntityPlace({ x: worldX, y: worldY });
+            return;
+          }
+          const candidates = [
+            ...levelConfig.npcs.map((item) => ({ type: "npc", item })),
+            ...levelConfig.objects.map((item) => ({ type: "pista", item })),
+          ];
+          const selected = candidates.find(({ type, item }) => {
+            const size = type === "npc" ? 40 : 36;
+            return worldX >= item.x && worldX <= item.x + size &&
+              worldY >= item.y - 8 && worldY <= item.y + size;
+          });
+          if (selected) {
+            entityDragRef.current = {
+              ...selected,
+              startX: worldX,
+              startY: worldY,
+              offsetX: worldX - selected.item.x,
+              offsetY: worldY - selected.item.y,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }
           return;
         }
         if (!editorMode) return;
@@ -3194,6 +3961,27 @@ function GameCanvas({
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerUp={(event) => {
+        if (entityEditorMode && entityDragRef.current) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const scaleX = VIEW_W / rect.width;
+          const scaleY = VIEW_H / rect.height;
+          const endX = (event.clientX - rect.left) * scaleX + cameraRef.current.x;
+          const endY = (event.clientY - rect.top) * scaleY + cameraRef.current.y;
+          const drag = entityDragRef.current;
+          entityDragRef.current = null;
+          if (distance(drag.startX, drag.startY, endX, endY) < 6) {
+            onEntityEdit(drag.type, drag.item);
+          } else {
+            const size = drag.type === "npc" ? 40 : 36;
+            onEntityMove(
+              drag.type,
+              drag.item.id,
+              Math.max(0, Math.min(levelConfig.width - size, endX - drag.offsetX)),
+              Math.max(0, Math.min(levelConfig.height - size, endY - drag.offsetY)),
+            );
+          }
+          return;
+        }
         if (!editorMode || !editorDragRef.current) return;
         const rect = event.currentTarget.getBoundingClientRect();
         const scaleX = VIEW_W / rect.width;

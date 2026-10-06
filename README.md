@@ -23,13 +23,13 @@ El juego sigue una estructura de misión: el jugador comienza eligiendo un avata
 6. Nivel 4: Final Mission
 7. Resultado y reflexión
 
-## Editar el escenario 1
+## Editar los escenarios del modo prueba
 
-Dentro del primer nivel, elegí **NPC y pistas** para abrir el lápiz de edición. Seleccioná NPC o Pista y hacé clic en el mapa para ubicarlo; después completá el nombre o título y el diálogo o contenido. También podés borrar elementos existentes desde la lista.
+En los escenarios explorables abiertos desde **Modo prueba** (Career Clues, Workplace Decisions y Career Center), elegí **NPC y pistas** para abrir el editor. Con **Mover/editar**, arrastrá los NPC, carteles y pistas existentes o hacé clic sobre uno para cambiar su nombre/título, emoji, diálogo o contenido. También podés usar la lista para editar o eliminar elementos, o elegir NPC/Pista para agregar nuevos.
 
-La herramienta **Salida** permite reubicarla. Por defecto aparece sobre el cartel “Exit” de `public/liceo.png`. Movete por el mapa con WASD o las flechas para llegar a otras zonas mientras editás.
+El botón **Desafío** permite editar preguntas existentes, opciones, respuesta correcta y explicación; agregar o quitar preguntas; crear un desafío para un NPC o quitarle el que tiene. Los desafíos de los carteles también se pueden editar y asignar a un NPC. La herramienta **Salida** permite reubicar la salida. Movete por el mapa con WASD o las flechas antes de abrir el lápiz. Mientras el lápiz esté abierto, el juego queda pausado y las teclas se pueden usar para escribir.
 
-Al cerrar cualquiera de los lápices, los cambios se guardan en `src/editorData.json` dentro del proyecto, no en el almacenamiento del navegador. Los lápices de muros y de NPC/pistas son independientes; editar contenido no modifica los muros. Esta función de guardado requiere ejecutar el proyecto con `npm run dev`.
+Al guardar la edición de un NPC o pista, el cambio se escribe inmediatamente en `src/editorData.json` dentro del proyecto; los cambios de muros y posición se guardan al cerrar su lápiz. No se guardan solo en el navegador. Ejecutá `npm run dev` para editar y luego incluí `src/editorData.json` en el proyecto/versionado y generá el build para publicar los cambios.
 
 ## Ejecutar localmente
 
