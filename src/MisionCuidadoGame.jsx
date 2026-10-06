@@ -1804,20 +1804,27 @@ function MCModal({ data, onAnswer, feedback, onRetry, onClose }) {
     <ModalShell title="RESPONDÉ" accent="#C6F135">
       <p style={{ fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>{data.text}</p>
       {!feedback ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: presentation === "cards" ? "repeat(auto-fit, minmax(140px, 1fr))" : "1fr",
+          gap: 8,
+          marginTop: 12,
+        }}>
           {data.options.map((opt, i) => (
             <button
               key={i}
               onClick={() => onAnswer(i)}
               style={{
                 textAlign: "left",
-                padding: "10px 14px",
+                padding: presentation === "cards" ? "18px 14px" : "10px 14px",
                 borderRadius: 8,
-                border: "2px solid #C6F135",
-                background: "rgba(255,255,255,0.06)",
+                border: `2px solid ${presentation === "cards" ? "#8DB4FF" : "#C6F135"}`,
+                background: presentation === "cards" ? "#232B5E" : "rgba(255,255,255,0.06)",
                 color: "#F5F5F5",
                 cursor: "pointer",
                 fontFamily: "'Inter', sans-serif",
+                minHeight: presentation === "cards" ? 88 : undefined,
+                boxShadow: presentation === "cards" ? "0 4px 0 #151B40" : undefined,
               }}
             >
               {opt}
@@ -1906,7 +1913,7 @@ function MultiQuizModal({ questions, onFinish }) {
   );
 }
 
-function EditableChallengeModal({ questions, title, onFinish }) {
+function EditableChallengeModal({ questions, title, presentation = "multiple", onFinish }) {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const question = questions[index];
@@ -2809,6 +2816,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       entityId: item.id,
       assignedNpcId: kind === "npc" ? item.id : "",
       title: kind === "npc" ? `Desafío de ${item.name}` : item.label || "Desafío",
+      presentation: saved?.presentation || "multiple",
       questions: questions.length
         ? questions.map((question) => ({ ...question, options: [...question.options] }))
         : [{ text: "", options: ["", ""], correctIndex: 0, explanation: "" }],
@@ -2860,7 +2868,12 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       if (sourceNpc && sourceNpc.id !== npc.id) {
         delete nextOverrides[`npc:${sourceNpc.id}`];
       }
-      nextOverrides[key] = { id: key, title: challengeDraft.title.trim(), questions };
+      nextOverrides[key] = {
+        id: key,
+        title: challengeDraft.title.trim(),
+        presentation: challengeDraft.presentation,
+        questions,
+      };
       const updatedContent = {
         ...editorContent,
         challengeOverrides: nextOverrides,
@@ -2908,6 +2921,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       nextOverrides[challengeDraft.challengeKey] = {
         id: challengeDraft.challengeKey,
         title: challengeDraft.title.trim(),
+        presentation: challengeDraft.presentation,
         questions,
       };
       saveEditorContent({ ...editorContent, challengeOverrides: nextOverrides });
@@ -3009,6 +3023,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
             kind: "editable_challenge",
             obj,
             title: challenge.title,
+            presentation: challenge.presentation || "multiple",
             questions: challenge.questions,
             target: "object",
           });
@@ -3091,6 +3106,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         kind: "editable_challenge",
         npc,
         title: savedChallenge?.title || `DESAFÍO · ${npc.name}`,
+        presentation: savedChallenge?.presentation || "multiple",
         questions,
         target: "npc",
       });
@@ -3263,6 +3279,17 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                       required
                       style={editorInputStyle}
                     />
+                  </label>
+                  <label>
+                    Formato del desafío
+                    <select
+                      value={challengeDraft.presentation}
+                      onChange={(event) => setChallengeDraft({ ...challengeDraft, presentation: event.target.value })}
+                      style={editorInputStyle}
+                    >
+                      <option value="multiple">Opción múltiple</option>
+                      <option value="cards">Tarjetas</option>
+                    </select>
                   </label>
                   <label>
                     Emoji
@@ -3545,6 +3572,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         <EditableChallengeModal
           questions={modal.questions}
           title={modal.title || (modal.npc?.name ? `DESAFÍO · ${modal.npc.name}` : "MITO O REALIDAD")}
+          presentation={modal.presentation}
           onFinish={() => {
             if (modal.npc) {
               runtimeRef.current.doneNpcs[modal.npc.id] = true;
