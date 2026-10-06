@@ -640,20 +640,7 @@
         }
       ],
       "content": {
-        "npcs": [
-          {
-            "id": "editor-npc-1791152147800",
-            "x": 833.3333358764648,
-            "y": 631.666675567627,
-            "name": "jjjjjjjj",
-            "emoji": "🧑‍💼",
-            "color": "#FFB347",
-            "dialogue": [
-              "jnijnojomomp,,.,.,ñ,"
-            ],
-            "editorCreated": true
-          }
-        ],
+        "npcs": [],
         "objects": [],
         "npcOverrides": {
           "prof_ana": {
@@ -701,7 +688,9 @@
             "y": 112.66665649414062
           }
         },
-        "removedNpcIds": [],
+        "removedNpcIds": [
+          "teacher_guide"
+        ],
         "removedObjectIds": [],
         "removedChallengeIds": [],
         "challengeOverrides": {},

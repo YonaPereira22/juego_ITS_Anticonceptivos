@@ -1916,6 +1916,7 @@ function MultiQuizModal({ questions, onFinish }) {
 function EditableChallengeModal({ questions, title, presentation = "multiple", onFinish }) {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState(null);
+  const [selectedAnswers, setSelectedAnswers] = useState([]);
   const question = questions[index];
 
   if (!question) return null;
@@ -1924,7 +1925,31 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
     else {
       setIndex((current) => current + 1);
       setFeedback(null);
+      setSelectedAnswers([]);
     }
+  };
+  const correctAnswers = question.correctIndexes?.length
+    ? question.correctIndexes
+    : [question.correctIndex];
+  const answerOption = (optionIndex) => {
+    if (question.multiSelect) {
+      setSelectedAnswers((selected) => selected.includes(optionIndex)
+        ? selected.filter((answer) => answer !== optionIndex)
+        : [...selected, optionIndex]);
+      return;
+    }
+    setFeedback({
+      correct: correctAnswers.includes(optionIndex),
+      explanation: question.explanation,
+    });
+  };
+  const checkSelectedAnswers = () => {
+    const selected = [...selectedAnswers].sort((a, b) => a - b);
+    const correct = [...correctAnswers].sort((a, b) => a - b);
+    setFeedback({
+      correct: selected.length === correct.length && selected.every((answer, answerIndex) => answer === correct[answerIndex]),
+      explanation: question.explanation,
+    });
   };
 
   return (
@@ -1934,6 +1959,12 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
       </p>
       <p style={{ fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>{question.text}</p>
       {!feedback ? (
+        <>
+        {question.multiSelect && (
+          <p style={{ color: "#C9CFEA", fontSize: 13, margin: "8px 0" }}>
+            Seleccioná todas las respuestas correctas y después comprobá.
+          </p>
+        )}
         <div style={{
           display: "grid",
           gridTemplateColumns: presentation === "cards" ? "repeat(auto-fit, minmax(140px, 1fr))" : "1fr",
@@ -1943,16 +1974,15 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
           {question.options.map((option, optionIndex) => (
             <button
               key={`${index}-${optionIndex}`}
-              onClick={() => setFeedback({
-                correct: optionIndex === question.correctIndex,
-                explanation: question.explanation,
-              })}
+              onClick={() => answerOption(optionIndex)}
               style={{
                 textAlign: "left",
                 padding: presentation === "cards" ? "18px 14px" : "10px 14px",
                 borderRadius: 8,
-                border: `2px solid ${presentation === "cards" ? "#8DB4FF" : "#C6F135"}`,
-                background: presentation === "cards" ? "#232B5E" : "rgba(255,255,255,0.06)",
+                border: `2px solid ${question.multiSelect && selectedAnswers.includes(optionIndex) ? "#C6F135" : presentation === "cards" ? "#8DB4FF" : "#C6F135"}`,
+                background: question.multiSelect && selectedAnswers.includes(optionIndex)
+                  ? "#40532B"
+                  : presentation === "cards" ? "#232B5E" : "rgba(255,255,255,0.06)",
                 color: "#F5F5F5",
                 cursor: "pointer",
                 fontFamily: "'Inter', sans-serif",
@@ -1960,14 +1990,27 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
                 boxShadow: presentation === "cards" ? "0 4px 0 #151B40" : undefined,
               }}
             >
-              {option}
+              {question.multiSelect && selectedAnswers.includes(optionIndex) ? "✓ " : ""}{option}
             </button>
           ))}
+          {question.multiSelect && (
+            <BigButton
+              onClick={checkSelectedAnswers}
+              disabled={!selectedAnswers.length}
+              style={{ marginTop: 6, opacity: selectedAnswers.length ? 1 : 0.55 }}
+            >
+              Comprobar respuestas
+            </BigButton>
+          )}
         </div>
+        </>
       ) : (
         <FeedbackBlock
           feedback={feedback}
-          onRetry={() => setFeedback(null)}
+          onRetry={() => {
+            setFeedback(null);
+            setSelectedAnswers([]);
+          }}
           onClose={continueChallenge}
         />
       )}
@@ -2289,6 +2332,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   const [projectDataError, setProjectDataError] = useState("");
   const [projectSaveStatus, setProjectSaveStatus] = useState("");
   const projectDataRef = useRef({ levels: {} });
+  const projectSaveQueue = useRef(Promise.resolve());
   const [entityEditorMode, setEntityEditorMode] = useState(false);
   const [entityEditorMinimized, setEntityEditorMinimized] = useState(false);
   const [entityTool, setEntityTool] = useState("select");
@@ -2470,41 +2514,54 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
 
   function saveEditorContent(nextContent) {
     setEditorContent(nextContent);
+    setProjectSaveStatus("Guardando cambios en src/editorData.json...");
+    setEntityEditorError("");
+    return persistEditorProject(nextContent)
+      .then(() => true)
+      .catch((error) => {
+        setProjectSaveStatus("");
+        setEntityEditorError(`No se pudieron guardar los cambios del lápiz: ${error.message}`);
+        return false;
+      });
   }
 
   async function persistEditorProject(contentToSave = editorContent) {
-    if (!projectDataReady || projectDataError) {
-      throw new Error(projectDataError || "Todavía se están cargando los datos del proyecto.");
-    }
-    const nextProjectData = {
-      ...projectDataRef.current,
-      levels: {
-        ...projectDataRef.current.levels,
-        [levelConfig.id]: {
-          walls: editorWalls,
-          content: contentToSave,
+    const saveTask = projectSaveQueue.current.catch(() => {}).then(async () => {
+      if (!projectDataReady || projectDataError) {
+        throw new Error(projectDataError || "Todavía se están cargando los datos del proyecto.");
+      }
+      const nextProjectData = {
+        ...projectDataRef.current,
+        levels: {
+          ...projectDataRef.current.levels,
+          [levelConfig.id]: {
+            walls: editorWalls,
+            content: contentToSave,
+          },
         },
-      },
-    };
-    let response;
-    try {
-      response = await fetch("/__job-quest/editor-data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextProjectData),
-      });
-    } catch {
-      throw new Error(
-        "No hay conexión con el servidor que guarda el proyecto. Ejecutá `npm run dev` en la carpeta del proyecto, dejalo abierto y volvé a pulsar Guardar. El cambio sigue en el editor."
-      );
-    }
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(detail || `El servidor respondió ${response.status}.`);
-    }
-    projectDataRef.current = nextProjectData;
-    setProjectSaveStatus("Guardado en src/editorData.json");
-    window.setTimeout(() => setProjectSaveStatus(""), 1800);
+      };
+      let response;
+      try {
+        response = await fetch("/__job-quest/editor-data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextProjectData),
+        });
+      } catch {
+        throw new Error(
+          "No hay conexión con el servidor que guarda el proyecto. Ejecutá `npm run dev` en la carpeta del proyecto, dejalo abierto y volvé a pulsar Guardar. El cambio sigue en el editor."
+        );
+      }
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `El servidor respondió ${response.status}.`);
+      }
+      projectDataRef.current = nextProjectData;
+      setProjectSaveStatus("Guardado en src/editorData.json");
+      window.setTimeout(() => setProjectSaveStatus(""), 1800);
+    });
+    projectSaveQueue.current = saveTask;
+    await saveTask;
   }
 
   async function closeEditor(editor) {
@@ -2554,9 +2611,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       label: type === "npc" ? "" : item.label || item.name || item.id,
       emoji: item.emoji || (type === "npc" ? "🧑‍💼" : "📌"),
       color: item.color,
+      gender: item.gender || "neutral",
       skin: item.skin,
       hair: item.hair,
-      hairStyle: item.hairStyle,
+      hairStyle: item.hairStyle || (item.gender === "female" ? "long" : "short"),
       content: type === "npc"
         ? (item.dialogue || []).join("\n")
         : item.type === "mito"
@@ -2588,6 +2646,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       name: "",
       label: "",
       emoji: entityTool === "npc" ? "🧑‍💼" : "📌",
+      color: "#FFB347",
+      gender: "neutral",
+      skin: "#F6C9A7",
+      hair: "#342B35",
+      hairStyle: "short",
       content: "",
       original: false,
       objectType: "pista",
@@ -2614,9 +2677,10 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
           name: title,
           emoji: entityDraft.emoji || "🧑‍💼",
           color: entityDraft.color || "#FFB347",
-          ...(entityDraft.skin ? { skin: entityDraft.skin } : {}),
-          ...(entityDraft.hair ? { hair: entityDraft.hair } : {}),
-          ...(entityDraft.hairStyle ? { hairStyle: entityDraft.hairStyle } : {}),
+          gender: entityDraft.gender || "neutral",
+          skin: entityDraft.skin || "#F6C9A7",
+          hair: entityDraft.hair || "#342B35",
+          hairStyle: entityDraft.hairStyle || "short",
           dialogue: content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
           editorCreated: !entityDraft.original,
         }
@@ -2692,10 +2756,9 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
             : [...entries, entry],
         };
       }
-      saveEditorContent(nextContent);
+      const saved = await saveEditorContent(nextContent);
+      if (!saved) return;
       setEntityEditorError("");
-      setProjectSaveStatus("Guardando cambios en src/editorData.json...");
-      await persistEditorProject(nextContent);
       setEntityDraft(null);
       setEntityEditorError("");
       showToast("Cambio guardado en src/editorData.json.");
@@ -2825,8 +2888,15 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       title: kind === "npc" ? `Desafío de ${item.name}` : item.label || "Desafío",
       presentation: saved?.presentation || "multiple",
       questions: questions.length
-        ? questions.map((question) => ({ ...question, options: [...question.options] }))
-        : [{ text: "", options: ["", ""], correctIndex: 0, explanation: "" }],
+        ? questions.map((question) => ({
+          ...question,
+          options: [...question.options],
+          multiSelect: question.multiSelect || (question.correctIndexes?.length || 0) > 1,
+          correctIndexes: question.correctIndexes?.length
+            ? [...question.correctIndexes]
+            : [question.correctIndex || 0],
+        }))
+        : [{ text: "", options: ["", ""], correctIndex: 0, correctIndexes: [0], multiSelect: false, explanation: "" }],
     });
   }
 
@@ -2839,7 +2909,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
     }));
   }
 
-  function saveChallengeDraft(event) {
+  async function saveChallengeDraft(event) {
     event.preventDefault();
     if (!challengeDraft) return;
     const questions = challengeDraft.questions.map((question) => ({
@@ -2847,12 +2917,17 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
       text: question.text.trim(),
       options: question.options.map((option) => option.trim()),
       explanation: question.explanation.trim(),
+      correctIndexes: question.multiSelect
+        ? (question.correctIndexes?.length ? question.correctIndexes : [question.correctIndex])
+        : [question.correctIndex],
     }));
     if (!challengeDraft.title.trim() || questions.length > 100 || questions.some((question) =>
       !question.text || !question.explanation || question.options.length < 2 ||
       question.options.length > 10 || question.options.some((option) => !option) ||
-      !Number.isInteger(question.correctIndex) ||
-      question.correctIndex < 0 || question.correctIndex >= question.options.length
+      !question.correctIndexes.length ||
+      question.correctIndexes.some((answer) => !Number.isInteger(answer) || answer < 0 || answer >= question.options.length) ||
+      new Set(question.correctIndexes).size !== question.correctIndexes.length ||
+      (!question.multiSelect && question.correctIndexes.length !== 1)
     )) {
       setEntityEditorError("Completá cada consigna, sus opciones, una respuesta correcta y la explicación.");
       return;
@@ -2923,7 +2998,8 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         }
         return entry;
       });
-      saveEditorContent(updatedContent);
+      const saved = await saveEditorContent(updatedContent);
+      if (!saved) return;
     } else {
       nextOverrides[challengeDraft.challengeKey] = {
         id: challengeDraft.challengeKey,
@@ -2931,11 +3007,12 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         presentation: challengeDraft.presentation,
         questions,
       };
-      saveEditorContent({ ...editorContent, challengeOverrides: nextOverrides });
+      const saved = await saveEditorContent({ ...editorContent, challengeOverrides: nextOverrides });
+      if (!saved) return;
     }
     setChallengeDraft(null);
     setEntityEditorError("");
-    showToast("Desafío listo. Cerrá el lápiz para guardarlo en el proyecto.");
+    showToast("Desafío guardado en src/editorData.json.");
   }
 
   function deleteNpcChallenge(npc) {
@@ -3087,6 +3164,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
             obj,
             mission,
             title: challenge.title,
+            presentation: challenge.presentation || "multiple",
             questions: challenge.questions,
           });
           break;
@@ -3288,7 +3366,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                     />
                   </label>
                   <label>
-                    Emoji
+                    {entityDraft.type === "npc" ? "Ícono del NPC (opcional)" : "Emoji"}
                     <input
                       value={entityDraft.emoji}
                       onChange={(event) => setEntityDraft({ ...entityDraft, emoji: event.target.value })}
@@ -3296,6 +3374,68 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                       style={editorInputStyle}
                     />
                   </label>
+                  {entityDraft.type === "npc" && (
+                    <>
+                      <strong style={{ marginTop: 3 }}>Apariencia del personaje</strong>
+                      <label>
+                        Presentación
+                        <select
+                          value={entityDraft.gender || "neutral"}
+                          onChange={(event) => setEntityDraft({
+                            ...entityDraft,
+                            gender: event.target.value,
+                            hairStyle: event.target.value === "female" ? "long" : event.target.value === "male" ? "short" : entityDraft.hairStyle,
+                          })}
+                          style={editorInputStyle}
+                        >
+                          <option value="female">Femenina</option>
+                          <option value="male">Masculina</option>
+                          <option value="neutral">Neutra</option>
+                        </select>
+                      </label>
+                      <label>
+                        Tono de piel
+                        <input
+                          type="color"
+                          value={entityDraft.skin || "#F6C9A7"}
+                          onChange={(event) => setEntityDraft({ ...entityDraft, skin: event.target.value })}
+                          aria-label="Elegir tono de piel del NPC"
+                          style={{ ...editorInputStyle, height: 34, padding: 3 }}
+                        />
+                      </label>
+                      <label>
+                        Cabello
+                        <select
+                          value={entityDraft.hairStyle || "short"}
+                          onChange={(event) => setEntityDraft({ ...entityDraft, hairStyle: event.target.value })}
+                          style={editorInputStyle}
+                        >
+                          <option value="short">Corto</option>
+                          <option value="long">Largo</option>
+                        </select>
+                      </label>
+                      <label>
+                        Color de cabello
+                        <input
+                          type="color"
+                          value={entityDraft.hair || "#342B35"}
+                          onChange={(event) => setEntityDraft({ ...entityDraft, hair: event.target.value })}
+                          aria-label="Elegir color de cabello del NPC"
+                          style={{ ...editorInputStyle, height: 34, padding: 3 }}
+                        />
+                      </label>
+                      <label>
+                        Color de ropa
+                        <input
+                          type="color"
+                          value={entityDraft.color || "#FFB347"}
+                          onChange={(event) => setEntityDraft({ ...entityDraft, color: event.target.value })}
+                          aria-label="Elegir color de ropa del NPC"
+                          style={{ ...editorInputStyle, height: 34, padding: 3 }}
+                        />
+                      </label>
+                    </>
+                  )}
                   <label>
                     {entityDraft.type === "npc" ? "Diálogo (una línea por mensaje)" : "Texto del cartel o pista"}
                     <textarea
@@ -3360,6 +3500,29 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                   {challengeDraft.questions.map((question, questionIndex) => (
                     <div key={questionIndex} style={{ display: "grid", gap: 6, padding: 8, border: "1px solid #3A4270", borderRadius: 6 }}>
                       <strong>Pregunta {questionIndex + 1}</strong>
+                      <label style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!question.multiSelect}
+                          onChange={(event) => {
+                            const multiSelect = event.target.checked;
+                            const correctIndexes = question.correctIndexes?.length
+                              ? question.correctIndexes
+                              : [question.correctIndex || 0];
+                            updateChallengeQuestion(questionIndex, {
+                              multiSelect,
+                              correctIndexes: multiSelect ? correctIndexes : [correctIndexes[0]],
+                              correctIndex: correctIndexes[0],
+                            });
+                          }}
+                        />
+                        Permitir varias respuestas correctas
+                      </label>
+                      {question.multiSelect && (
+                        <p style={{ color: "#C9CFEA", margin: 0, fontSize: 11 }}>
+                          Marcá todas las respuestas correctas. En el juego, se deben elegir todas y comprobar juntas.
+                        </p>
+                      )}
                       <textarea
                         aria-label={`Consigna ${questionIndex + 1}`}
                         value={question.text}
@@ -3378,10 +3541,28 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                       {question.options.map((option, optionIndex) => (
                         <div key={optionIndex} style={{ display: "flex", gap: 5, alignItems: "center" }}>
                           <input
-                            type="radio"
+                            type={question.multiSelect ? "checkbox" : "radio"}
                             name={`correct-${questionIndex}`}
-                            checked={question.correctIndex === optionIndex}
-                            onChange={() => updateChallengeQuestion(questionIndex, { correctIndex: optionIndex })}
+                            checked={question.multiSelect
+                              ? (question.correctIndexes || [question.correctIndex || 0]).includes(optionIndex)
+                              : question.correctIndex === optionIndex}
+                            onChange={(event) => {
+                              if (!question.multiSelect) {
+                                updateChallengeQuestion(questionIndex, {
+                                  correctIndex: optionIndex,
+                                  correctIndexes: [optionIndex],
+                                });
+                                return;
+                              }
+                              const selected = question.correctIndexes || [question.correctIndex || 0];
+                              const correctIndexes = event.target.checked
+                                ? [...selected, optionIndex]
+                                : selected.filter((answer) => answer !== optionIndex);
+                              updateChallengeQuestion(questionIndex, {
+                                correctIndexes,
+                                correctIndex: correctIndexes[0] ?? 0,
+                              });
+                            }}
                             aria-label={`Marcar ${challengeDraft.presentation === "cards" ? "tarjeta" : "opción"} ${optionIndex + 1} como respuesta correcta`}
                           />
                           <input
@@ -3398,10 +3579,20 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                           {question.options.length > 2 && (
                             <button
                               type="button"
-                              onClick={() => updateChallengeQuestion(questionIndex, {
-                                options: question.options.filter((_, index) => index !== optionIndex),
-                                correctIndex: Math.min(question.correctIndex, question.options.length - 2),
-                              })}
+                              onClick={() => {
+                                const options = question.options.filter((_, index) => index !== optionIndex);
+                                const correctIndexes = (question.correctIndexes || [question.correctIndex || 0])
+                                  .filter((answer) => answer !== optionIndex)
+                                  .map((answer) => answer > optionIndex ? answer - 1 : answer);
+                                const nextCorrectIndexes = correctIndexes.length
+                                  ? correctIndexes
+                                  : [Math.min(optionIndex, options.length - 1)];
+                                updateChallengeQuestion(questionIndex, {
+                                  options,
+                                  correctIndexes: nextCorrectIndexes,
+                                  correctIndex: nextCorrectIndexes[0],
+                                });
+                              }}
                               style={editorActionButtonStyle}
                             >
                               ×
@@ -3444,7 +3635,14 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                     type="button"
                     onClick={() => setChallengeDraft({
                       ...challengeDraft,
-                      questions: [...challengeDraft.questions, { text: "", options: ["", ""], correctIndex: 0, explanation: "" }],
+                      questions: [...challengeDraft.questions, {
+                        text: "",
+                        options: ["", ""],
+                        correctIndex: 0,
+                        correctIndexes: [0],
+                        multiSelect: false,
+                        explanation: "",
+                      }],
                     })}
                     style={editorActionButtonStyle}
                   >
@@ -3678,6 +3876,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
         <EditableChallengeModal
           questions={modal.questions}
           title={modal.title || modal.mission?.label || "FRAGMENTO"}
+          presentation={modal.presentation || "multiple"}
           onFinish={() => {
             runtimeRef.current.doneObjects[modal.obj.id] = true;
             collectInventoryItem({
@@ -4179,8 +4378,8 @@ function drawNpc(ctx, npc) {
   ctx.textAlign = "center";
   ctx.fillText(npc.name, npc.x + 20, npc.y - 7);
   if (npc.editorCreated && npc.emoji) {
-    ctx.font = "18px sans-serif";
-    ctx.fillText(npc.emoji, npc.x + 17, npc.y + 5);
+    ctx.font = "12px sans-serif";
+    ctx.fillText(npc.emoji, npc.x + 34, npc.y + 25);
   }
   ctx.restore();
 }
@@ -4224,7 +4423,7 @@ function drawPlayer(ctx, x, y, color, id, appearance = {}) {
    ================================================================ */
 const LEVELS = buildLevels();
 
-export default function MisionCuidadoGame() {
+export default function JobQuestGame() {
   const [screen, setScreen] = useState("select"); // select | map | game
   const [language, setLanguage] = useState("es");
   const [character, setCharacter] = useState(null);

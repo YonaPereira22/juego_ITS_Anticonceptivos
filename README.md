@@ -29,7 +29,9 @@ En los escenarios explorables abiertos desde **Modo prueba** (Career Clues, Work
 
 El botón **Desafío** permite editar preguntas existentes, opciones, respuesta correcta y explicación; agregar o quitar preguntas; crear un desafío para un NPC o quitarle el que tiene. Los desafíos de los carteles también se pueden editar y asignar a un NPC. La herramienta **Salida** permite reubicar la salida. Movete por el mapa con WASD o las flechas antes de abrir el lápiz. Mientras el lápiz esté abierto, el juego queda pausado y las teclas se pueden usar para escribir.
 
-Al guardar la edición de un NPC o pista, el cambio se escribe inmediatamente en `src/editorData.json` dentro del proyecto; los cambios de muros y posición se guardan al cerrar su lápiz. No se guardan solo en el navegador. Ejecutá `npm run dev` para editar y luego incluí `src/editorData.json` en el proyecto/versionado y generá el build para publicar los cambios.
+Al crear o editar un NPC, el editor permite elegir presentación, tono de piel, largo y color del cabello, y color de ropa. El ícono del NPC es opcional y se muestra junto al personaje.
+
+Cada cambio confirmado con el lápiz de NPC y pistas (crear, editar, mover, eliminar y guardar desafíos) se escribe inmediatamente en `src/editorData.json` dentro del proyecto. El editor muestra el estado del guardado y avisa si falla. Los cambios de muros se guardan al cerrar su lápiz. No se guardan solo en el navegador. Ejecutá `npm run dev` para editar y luego incluí `src/editorData.json` en el proyecto/versionado y generá el build para publicar los cambios.
 
 ## Ejecutar localmente
 
