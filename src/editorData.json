@@ -662,12 +662,14 @@
               "¡Necesito tu ayuda! En el liceo aparecieron cinco carteles sobre distintas profesiones, pero algunos podrían tener información falsa.",
               "Recorré las aulas y revisá cada cartel: fijate qué hace cada profesional y dónde trabaja. Si algo no coincide, marcálo como mito.",
               "También podés conversar con Seño Laura para aprender sobre la docencia. Cuando termines de revisar los carteles, vení a hablar con Cami para resolver la situación y seguir la ruta."
-            ]
+            ],
+            "x": 695,
+            "y": 616
           },
           "cami_decision": {
             "id": "cami_decision",
-            "x": 735,
-            "y": 560,
+            "x": 805,
+            "y": 384,
             "name": "Juana",
             "emoji": "🧑🏽",
             "color": "#FF8FB1",
