@@ -1934,7 +1934,12 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
       </p>
       <p style={{ fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>{question.text}</p>
       {!feedback ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: presentation === "cards" ? "repeat(auto-fit, minmax(140px, 1fr))" : "1fr",
+          gap: 8,
+          marginTop: 12,
+        }}>
           {question.options.map((option, optionIndex) => (
             <button
               key={`${index}-${optionIndex}`}
@@ -1944,13 +1949,15 @@ function EditableChallengeModal({ questions, title, presentation = "multiple", o
               })}
               style={{
                 textAlign: "left",
-                padding: "10px 14px",
+                padding: presentation === "cards" ? "18px 14px" : "10px 14px",
                 borderRadius: 8,
-                border: "2px solid #C6F135",
-                background: "rgba(255,255,255,0.06)",
+                border: `2px solid ${presentation === "cards" ? "#8DB4FF" : "#C6F135"}`,
+                background: presentation === "cards" ? "#232B5E" : "rgba(255,255,255,0.06)",
                 color: "#F5F5F5",
                 cursor: "pointer",
                 fontFamily: "'Inter', sans-serif",
+                minHeight: presentation === "cards" ? 88 : undefined,
+                boxShadow: presentation === "cards" ? "0 4px 0 #151B40" : undefined,
               }}
             >
               {option}
@@ -3281,17 +3288,6 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                     />
                   </label>
                   <label>
-                    Formato del desafío
-                    <select
-                      value={challengeDraft.presentation}
-                      onChange={(event) => setChallengeDraft({ ...challengeDraft, presentation: event.target.value })}
-                      style={editorInputStyle}
-                    >
-                      <option value="multiple">Opción múltiple</option>
-                      <option value="cards">Tarjetas</option>
-                    </select>
-                  </label>
-                  <label>
                     Emoji
                     <input
                       value={entityDraft.emoji}
@@ -3331,6 +3327,22 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                     />
                   </label>
                   <label>
+                    Formato del desafío
+                    <select
+                      value={challengeDraft.presentation}
+                      onChange={(event) => setChallengeDraft({ ...challengeDraft, presentation: event.target.value })}
+                      style={editorInputStyle}
+                    >
+                      <option value="multiple">Opción múltiple</option>
+                      <option value="cards">Tarjetas de respuesta</option>
+                    </select>
+                  </label>
+                  <p style={{ color: "#C9CFEA", margin: "-3px 0 2px", fontSize: 11 }}>
+                    {challengeDraft.presentation === "cards"
+                      ? "Las opciones se mostrarán como tarjetas grandes. Escribí cada tarjeta y marcá la correcta con su círculo."
+                      : "Escribí las opciones y marcá con el círculo la respuesta correcta."}
+                  </p>
+                  <label>
                     {challengeDraft.kind === "npc" ? "Asignar desafío a NPC" : "NPC (opcional)"}
                     <select
                       value={challengeDraft.assignedNpcId}
@@ -3358,6 +3370,11 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                         placeholder="Consigna"
                         style={{ ...editorInputStyle, resize: "vertical" }}
                       />
+                      <p style={{ color: "#C9CFEA", margin: 0, fontSize: 11 }}>
+                        {challengeDraft.presentation === "cards"
+                          ? "Contenido de las tarjetas (elegí una como correcta):"
+                          : "Opciones de respuesta (elegí una como correcta):"}
+                      </p>
                       {question.options.map((option, optionIndex) => (
                         <div key={optionIndex} style={{ display: "flex", gap: 5, alignItems: "center" }}>
                           <input
@@ -3365,7 +3382,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                             name={`correct-${questionIndex}`}
                             checked={question.correctIndex === optionIndex}
                             onChange={() => updateChallengeQuestion(questionIndex, { correctIndex: optionIndex })}
-                            aria-label={`Marcar opción ${optionIndex + 1} como correcta`}
+                            aria-label={`Marcar ${challengeDraft.presentation === "cards" ? "tarjeta" : "opción"} ${optionIndex + 1} como respuesta correcta`}
                           />
                           <input
                             value={option}
@@ -3375,6 +3392,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                             maxLength={240}
                             required
                             aria-label={`Opción ${optionIndex + 1}`}
+                            placeholder={`${challengeDraft.presentation === "cards" ? "Tarjeta" : "Opción"} ${optionIndex + 1}`}
                             style={{ ...editorInputStyle, flex: 1 }}
                           />
                           {question.options.length > 2 && (
@@ -3396,7 +3414,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                         onClick={() => updateChallengeQuestion(questionIndex, { options: [...question.options, ""] })}
                         style={editorActionButtonStyle}
                       >
-                        Agregar opción
+                        {challengeDraft.presentation === "cards" ? "Agregar tarjeta" : "Agregar opción"}
                       </button>}
                       <textarea
                         aria-label={`Explicación ${questionIndex + 1}`}
