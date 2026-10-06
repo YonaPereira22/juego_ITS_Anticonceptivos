@@ -2276,6 +2276,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
   const [projectSaveStatus, setProjectSaveStatus] = useState("");
   const projectDataRef = useRef({ levels: {} });
   const [entityEditorMode, setEntityEditorMode] = useState(false);
+  const [entityEditorMinimized, setEntityEditorMinimized] = useState(false);
   const [entityTool, setEntityTool] = useState("select");
   const [entityDraft, setEntityDraft] = useState(null);
   const [entityEditorError, setEntityEditorError] = useState("");
@@ -3185,6 +3186,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                 closeEditor("entities");
               } else {
                 setEntityEditorMode(true);
+                setEntityEditorMinimized(false);
                 setEntityDraft(null);
                 setEntityEditorError("");
               }
@@ -3196,8 +3198,28 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
             {!projectDataReady ? "Cargando editor..." : entityEditorMode ? "Guardar y cerrar lápiz" : "✏ NPC y pistas"}
           </BigButton>
           {entityEditorMode && (
+            entityEditorMinimized ? (
+              <button
+                type="button"
+                onClick={() => setEntityEditorMinimized(false)}
+                style={{ marginTop: 8, padding: "7px 10px", borderRadius: 6, border: "1px solid #C6F135", background: "#151B40", color: "#F5F5F5", cursor: "pointer" }}
+              >
+                Mostrar editor NPC y pistas
+              </button>
+            ) : (
             <PixelPanel style={{ marginTop: 8, padding: 12, width: 300, maxHeight: 560, overflowY: "auto", borderColor: "#C6F135", fontSize: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <strong>Editar escenario</strong>
+              <button
+                type="button"
+                onClick={() => setEntityEditorMinimized(true)}
+                aria-label="Minimizar editor NPC y pistas"
+                title="Minimizar para despejar el mapa"
+                style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #3A4270", background: "#151B40", color: "#F5F5F5", cursor: "pointer" }}
+              >
+                − Minimizar
+              </button>
+              </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                 {[
                   ["select", "↖ Mover/editar"],
@@ -3413,6 +3435,7 @@ function GameScreen({ levelConfig, character, onExitToMap, onLevelFinished, play
                 </div>
               ))}
             </PixelPanel>
+            )
           )}
         </div>
       {(projectDataError || entityEditorError || projectSaveStatus) && (
